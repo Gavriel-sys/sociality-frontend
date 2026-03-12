@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import axios from "axios";
 import Link from "next/link";
@@ -8,7 +8,6 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { fetchMe, updateMe } from "@/lib/social-api";
 import { persistUserSnapshot } from "@/lib/session";
 import { getLocalAvatar, setLocalAvatar } from "@/lib/local-avatar";
-import { PageShell, Surface } from "@/components/page-shell";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -124,63 +123,66 @@ export default function EditProfilePage() {
   if (meQuery.error || !meQuery.data) return <div className="p-6 text-white">Gagal mengambil profile</div>;
 
   return (
-    <PageShell
-      eyebrow="Settings"
-      title="Edit profile"
-      description="Perbarui identitas utama kamu di Sociality. Avatar lokal juga akan tetap tampil di browser ini."
-      actions={
-        <Button asChild variant="outline" className="h-12 rounded-full px-6">
-          <Link href="/me">
-            <ArrowLeft className="h-4 w-4" />
-            Back
-          </Link>
-        </Button>
-      }
-    >
-      <div className="grid gap-6 lg:grid-cols-[280px_1fr]">
-        <Surface className="space-y-5">
-          <img src={avatarPreview} alt="Avatar" className="h-36 w-36 rounded-full object-cover ring-1 ring-white/10" />
+    <div className="mx-auto w-full max-w-[980px] px-4 pb-20 pt-10 sm:px-6 lg:px-8">
+      <div className="mb-10 flex items-center gap-4">
+        <Link href="/me" className="text-white transition hover:text-white/75">
+          <ArrowLeft className="h-8 w-8" />
+        </Link>
+        <h1 className="text-4xl font-semibold text-white">Edit Profile</h1>
+      </div>
 
-          <label className="inline-flex cursor-pointer items-center justify-center rounded-full border border-white/15 px-6 py-3 text-base font-medium text-white">
+      <div className="grid gap-10 lg:grid-cols-[140px_1fr] lg:items-start">
+        <div className="space-y-5">
+          <img src={avatarPreview} alt="Avatar" className="h-28 w-28 rounded-full object-cover sm:h-32 sm:w-32" />
+
+          <label className="inline-flex cursor-pointer items-center justify-center rounded-full border border-white/15 px-6 py-3 text-base font-medium text-white transition hover:bg-white/[0.03]">
             Change Photo
             <input type="file" accept="image/*" onChange={handleAvatarChange} className="hidden" />
           </label>
+        </div>
 
-          <p className="text-sm leading-6 text-white/55">
-            Avatar yang kamu upload di sini disimpan secara lokal agar UI tetap konsisten walaupun backend belum menyediakan endpoint upload avatar profile.
-          </p>
-        </Surface>
-
-        <Surface>
-          <div className="grid gap-5 md:grid-cols-2">
+        <div className="space-y-6">
+          <div className="grid gap-6 md:grid-cols-2">
             <div className="space-y-2">
               <label className="text-sm font-medium text-white">Name</label>
-              <Input value={name} onChange={(event) => updateDraft({ name: event.target.value })} className="h-14 rounded-2xl border-white/10 bg-[#050b16] text-white" />
+              <Input
+                value={name}
+                onChange={(event) => updateDraft({ name: event.target.value })}
+                className="h-14 rounded-xl border-white/10 bg-[#050b16] text-white"
+              />
             </div>
 
             <div className="space-y-2">
               <label className="text-sm font-medium text-white">Username</label>
-              <Input value={username} readOnly className="h-14 rounded-2xl border-white/10 bg-[#050b16] text-white opacity-70" />
+              <Input value={username} readOnly className="h-14 rounded-xl border-white/10 bg-[#050b16] text-white opacity-70" />
             </div>
 
             <div className="space-y-2">
               <label className="text-sm font-medium text-white">Email</label>
-              <Input value={email} readOnly className="h-14 rounded-2xl border-white/10 bg-[#050b16] text-white opacity-70" />
+              <Input value={email} readOnly className="h-14 rounded-xl border-white/10 bg-[#050b16] text-white opacity-70" />
             </div>
 
             <div className="space-y-2">
-              <label className="text-sm font-medium text-white">Phone</label>
-              <Input value={phone} onChange={(event) => updateDraft({ phone: event.target.value })} className="h-14 rounded-2xl border-white/10 bg-[#050b16] text-white" />
+              <label className="text-sm font-medium text-white">Number Phone</label>
+              <Input
+                value={phone}
+                onChange={(event) => updateDraft({ phone: event.target.value })}
+                className="h-14 rounded-xl border-white/10 bg-[#050b16] text-white"
+              />
             </div>
           </div>
 
-          <div className="mt-5 space-y-2">
+          <div className="space-y-2">
             <label className="text-sm font-medium text-white">Bio</label>
-            <Textarea value={bio} onChange={(event) => updateDraft({ bio: event.target.value })} className="min-h-36 rounded-[28px] border-white/10 bg-[#050b16] text-white" />
+            <Textarea
+              value={bio}
+              onChange={(event) => updateDraft({ bio: event.target.value })}
+              className="min-h-40 rounded-[18px] border-white/10 bg-[#050b16] text-white"
+            />
           </div>
 
           {formError ? (
-            <div className="mt-5 rounded-lg border border-red-500/20 bg-red-500/10 px-3 py-2 text-sm text-red-300">
+            <div className="rounded-xl border border-red-500/20 bg-red-500/10 px-3 py-2 text-sm text-red-300">
               {formError}
             </div>
           ) : null}
@@ -189,12 +191,12 @@ export default function EditProfilePage() {
             type="button"
             onClick={() => updateMutation.mutate()}
             disabled={updateMutation.isPending}
-            className="mt-6 h-14 w-full rounded-full bg-gradient-to-r from-violet-600 to-purple-500 text-base font-semibold text-white"
+            className="h-14 w-full rounded-full bg-gradient-to-r from-violet-600 to-purple-500 text-base font-semibold text-white"
           >
             {updateMutation.isPending ? "Save Changes..." : "Save Changes"}
           </Button>
-        </Surface>
+        </div>
       </div>
-    </PageShell>
+    </div>
   );
 }

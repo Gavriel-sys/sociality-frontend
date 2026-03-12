@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
@@ -42,15 +42,12 @@ export function UserChip({
   });
 
   return (
-    <div className="flex flex-col gap-4 rounded-[28px] border border-white/10 bg-white/[0.03] p-4 sm:flex-row sm:items-center sm:justify-between">
-      <Link
-        href={`/profile/${user.username}`}
-        className="flex min-w-0 items-center gap-4"
-      >
+    <div className="flex flex-col gap-4 rounded-[22px] border border-white/10 bg-[#050b16]/88 p-4 sm:flex-row sm:items-center sm:justify-between">
+      <Link href={`/profile/${user.username}`} className="flex min-w-0 items-center gap-4">
         <img
           src={user.avatarUrl || DEFAULT_AVATAR}
           alt={user.name}
-          className="h-14 w-14 rounded-full object-cover ring-1 ring-white/10"
+          className="h-12 w-12 rounded-full object-cover"
         />
 
         <div className="min-w-0">
@@ -62,7 +59,7 @@ export function UserChip({
               </span>
             ) : null}
           </div>
-          <p className="truncate text-sm text-white/55">@{user.username}</p>
+          <p className="truncate text-sm text-white/50">@{user.username}</p>
         </div>
       </Link>
 
@@ -72,10 +69,10 @@ export function UserChip({
           variant={user.isFollowedByMe ? "outline" : "default"}
           onClick={() => followMutation.mutate()}
           disabled={followMutation.isPending}
-          className="h-11 rounded-full px-5"
+          className="h-10 rounded-full px-5"
         >
           {followMutation.isPending
-            ? "Memproses..."
+            ? "Processing..."
             : user.isFollowedByMe
               ? "Following"
               : "Follow"}
@@ -84,4 +81,3 @@ export function UserChip({
     </div>
   );
 }
-

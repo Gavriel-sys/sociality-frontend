@@ -1,10 +1,10 @@
-"use client";
+﻿"use client";
 
 import Link from "next/link";
-import { ArrowLeft, Trash2 } from "lucide-react";
+import { ArrowLeft, Bookmark, Heart, MessageCircle, MoreHorizontal, Send, Smile, Trash2, X } from "lucide-react";
 import { InfiniteData, useInfiniteQuery, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useParams, useRouter } from "next/navigation";
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import {
   createComment,
   deleteComment,
@@ -14,18 +14,27 @@ import {
   fetchPost,
   fetchPostComments,
   fetchPostLikes,
+  likePost,
+  savePost,
+  unlikePost,
+  unsavePost,
 } from "@/lib/social-api";
-import { buildLoginHref, getStoredAvatar, getStoredDisplayName, getStoredUsername, getToken } from "@/lib/session";
+import { buildLoginHref, getToken } from "@/lib/session";
+import { useSessionSnapshot } from "@/lib/use-session";
 import type { CommentItem, CommentListData, UserSummary } from "@/types/social";
 import { EmptyState } from "@/components/empty-state";
-import { PageShell, Surface } from "@/components/page-shell";
-import { PostCard } from "@/components/post-card";
 import { UserChip } from "@/components/user-chip";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { formatDate, getNextPageParam } from "@/lib/utils";
+import { formatDate, formatRelativeTime, getNextPageParam } from "@/lib/utils";
 
 const DEFAULT_AVATAR = "/avatars/default-avatar.png";
+
+type PendingState = {
+  liked?: boolean;
+  saved?: boolean;
+  likeCount?: number;
+};
 
 export default function PostDetailPage() {
   const params = useParams<{ id: string }>();
@@ -36,8 +45,10 @@ export default function PostDetailPage() {
   const [commentDraft, setCommentDraft] = useState("");
   const [commentError, setCommentError] = useState("");
   const [likesOpen, setLikesOpen] = useState(false);
+  const [pendingState, setPendingState] = useState<PendingState | null>(null);
+  const session = useSessionSnapshot();
 
-  const isLoggedIn = !!getToken();
+  const isLoggedIn = session.isLoggedIn;
   const postQuery = useQuery({
     queryKey: ["post", postId],
     queryFn: () => fetchPost(postId),
@@ -46,13 +57,13 @@ export default function PostDetailPage() {
   const likedStateQuery = useQuery({
     queryKey: ["detail-liked-state", postId],
     queryFn: () => fetchMyLikes({ page: 1, limit: 100 }),
-    enabled: isLoggedIn,
+    enabled: session.mounted && isLoggedIn,
   });
 
   const savedStateQuery = useQuery({
     queryKey: ["detail-saved-state", postId],
     queryFn: () => fetchMySaved({ page: 1, limit: 100 }),
-    enabled: isLoggedIn,
+    enabled: session.mounted && isLoggedIn,
   });
 
   const commentsQuery = useInfiniteQuery({
@@ -71,9 +82,87 @@ export default function PostDetailPage() {
   });
 
   const comments = commentsQuery.data?.pages.flatMap((page) => page.comments) ?? [];
-  const likeIds = new Set(likedStateQuery.data?.posts.map((post) => post.id) ?? []);
-  const saveIds = new Set(savedStateQuery.data?.posts.map((post) => post.id) ?? []);
   const likedUsers = likesQuery.data?.pages.flatMap((page) => page.users) ?? [];
+
+  const likedByQuery = likedStateQuery.data?.posts.some((post) => post.id === Number(postId)) ?? false;
+  const savedByQuery = savedStateQuery.data?.posts.some((post) => post.id === Number(postId)) ?? false;
+  const liked = pendingState?.liked ?? likedByQuery ?? postQuery.data?.likedByMe ?? false;
+  const saved = pendingState?.saved ?? savedByQuery ?? postQuery.data?.savedByMe ?? false;
+  const likeCount = pendingState?.likeCount ?? postQuery.data?.likeCount ?? 0;
+
+  const likeMutation = useMutation({
+    mutationFn: async () => {
+      if (!postQuery.data) {
+        return null;
+      }
+
+      if (liked) {
+        return unlikePost(postQuery.data.id);
+      }
+
+      return likePost(postQuery.data.id);
+    },
+    onMutate: () => {
+      const nextLiked = !liked;
+      setPendingState((current) => ({
+        ...current,
+        liked: nextLiked,
+        likeCount: likeCount + (nextLiked ? 1 : -1),
+      }));
+    },
+    onError: () => {
+      setPendingState(null);
+    },
+    onSuccess: (data) => {
+      if (!data) return;
+      setPendingState((current) => ({
+        ...current,
+        liked: data.liked,
+        likeCount: data.likeCount,
+      }));
+      queryClient.invalidateQueries({});
+    },
+  });
+
+  const saveMutation = useMutation({
+    mutationFn: async () => {
+      if (!postQuery.data) {
+        return null;
+      }
+
+      if (saved) {
+        return unsavePost(postQuery.data.id);
+      }
+
+      return savePost(postQuery.data.id);
+    },
+    onMutate: () => {
+      setPendingState((current) => ({
+        ...current,
+        saved: !saved,
+      }));
+    },
+    onError: () => {
+      setPendingState(null);
+    },
+    onSuccess: (data) => {
+      if (!data) return;
+      setPendingState((current) => ({
+        ...current,
+        saved: data.saved,
+      }));
+      queryClient.invalidateQueries({});
+    },
+  });
+
+  function handleProtectedAction(action: () => void) {
+    if (!getToken()) {
+      router.push(buildLoginHref(`/posts/${postId}`));
+      return;
+    }
+
+    action();
+  }
 
   const createCommentMutation = useMutation({
     mutationFn: async () => {
@@ -97,9 +186,9 @@ export default function PostDetailPage() {
         createdAt: new Date().toISOString(),
         author: {
           id: 0,
-          username: getStoredUsername() || "me",
-          name: getStoredDisplayName(),
-          avatarUrl: getStoredAvatar() || DEFAULT_AVATAR,
+          username: session.username || "me",
+          name: session.displayName,
+          avatarUrl: session.avatarUrl || DEFAULT_AVATAR,
           isMe: true,
         },
         isMine: true,
@@ -203,164 +292,260 @@ export default function PostDetailPage() {
     },
   });
 
-  const canDeletePost = postQuery.data?.author.username === getStoredUsername();
-  const detailDescription = useMemo(() => {
-    if (!postQuery.data) return "";
-    return `Diposting ${formatDate(postQuery.data.createdAt)} oleh @${postQuery.data.author.username}.`;
-  }, [postQuery.data]);
-
   if (postQuery.isPending) {
     return <div className="p-6 text-white">Loading post...</div>;
   }
 
   if (postQuery.error || !postQuery.data) {
     return (
-      <PageShell eyebrow="Post detail" title="Post tidak ditemukan" description="Cek lagi URL post atau kembali ke feed untuk melanjutkan browsing.">
-        <EmptyState title="Post tidak tersedia" description="Bisa jadi post sudah dihapus atau ID post tidak valid." ctaLabel="Kembali ke Feed" ctaHref="/feed" />
-      </PageShell>
+      <div className="mx-auto max-w-5xl px-4 py-10 sm:px-6 lg:px-8">
+        <EmptyState
+          title="Post tidak tersedia"
+          description="Bisa jadi post sudah dihapus atau ID post tidak valid."
+          ctaLabel="Kembali ke Feed"
+          ctaHref="/feed"
+        />
+      </div>
     );
   }
 
+  const post = postQuery.data;
+  const canDeletePost = post.author.username === session.username;
+
   return (
     <>
-      <PageShell
-        eyebrow="Post detail"
-        title="Lihat post, suka, simpan, dan lanjutkan percakapan."
-        description={detailDescription}
-        actions={
-          <Button asChild variant="outline" className="h-12 rounded-full px-6">
-            <Link href={getToken() ? "/feed" : "/"}>
-              <ArrowLeft className="h-4 w-4" />
-              Back
-            </Link>
-          </Button>
-        }
-      >
-        <div className="grid gap-6 xl:grid-cols-[1.2fr_0.8fr]">
-          <div className="space-y-6">
-            <PostCard
-              post={postQuery.data}
-              forceLiked={likeIds.has(postQuery.data.id)}
-              forceSaved={saveIds.has(postQuery.data.id)}
-              showDetailAction={false}
-              onOpenLikes={() => setLikesOpen(true)}
+      <div className="px-4 py-6 sm:px-6 lg:px-8">
+        <div className="mx-auto flex max-w-[1220px] justify-end pb-4">
+          <button
+            type="button"
+            onClick={() => {
+              if (window.history.length > 1) {
+                router.back();
+                return;
+              }
+
+              router.push(session.isLoggedIn ? "/feed" : "/");
+            }}
+            className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-white/10 bg-[#050b16]/92 text-white transition hover:bg-white/[0.05]"
+            aria-label="Close"
+          >
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+
+        <div className="mx-auto grid max-w-[1220px] overflow-hidden rounded-[28px] border border-white/10 bg-[#040a16]/94 shadow-[0_24px_80px_rgba(0,0,0,0.48)] lg:grid-cols-[1.55fr_1fr]">
+          <div className="bg-black">
+            <img
+              src={post.imageUrl || DEFAULT_AVATAR}
+              alt={post.caption || "Post image"}
+              className="h-full min-h-[320px] w-full object-cover lg:min-h-[720px]"
             />
+          </div>
 
-            <Surface>
-              <div className="flex items-center justify-between gap-4">
-                <div>
-                  <h2 className="text-xl font-semibold text-white">Komentar</h2>
-                  <p className="mt-1 text-sm text-white/55">
-                    {commentsQuery.isPending ? "Memuat komentar..." : `${comments.length} komentar tampil`}
-                  </p>
+          <div className="flex min-h-[520px] flex-col border-l border-white/10">
+            <div className="flex items-start justify-between gap-4 border-b border-white/10 px-5 py-5 sm:px-6">
+              <div className="flex min-w-0 items-center gap-3">
+                <Link href={`/profile/${post.author.username}`}>
+                  <img
+                    src={post.author.avatarUrl || DEFAULT_AVATAR}
+                    alt={post.author.name}
+                    className="h-11 w-11 rounded-full object-cover"
+                  />
+                </Link>
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-semibold text-white">{post.author.name}</p>
+                  <p className="mt-1 text-xs text-white/45">{formatRelativeTime(post.createdAt)}</p>
                 </div>
+              </div>
 
+              <div className="flex items-center gap-2">
                 {canDeletePost ? (
-                  <Button
+                  <button
                     type="button"
-                    variant="destructive"
                     onClick={() => {
                       if (window.confirm("Hapus post ini?")) {
                         deletePostMutation.mutate();
                       }
                     }}
                     disabled={deletePostMutation.isPending}
-                    className="h-11 rounded-full px-4"
+                    className="inline-flex h-9 w-9 items-center justify-center rounded-full text-white/60 transition hover:bg-white/[0.04] hover:text-white disabled:opacity-50"
+                    aria-label="Delete post"
                   >
                     <Trash2 className="h-4 w-4" />
-                    Hapus Post
-                  </Button>
+                  </button>
+                ) : null}
+                <button
+                  type="button"
+                  className="inline-flex h-9 w-9 items-center justify-center rounded-full text-white/60"
+                  aria-label="More"
+                >
+                  <MoreHorizontal className="h-4 w-4" />
+                </button>
+              </div>
+            </div>
+
+            <div className="border-b border-white/10 px-5 py-5 sm:px-6">
+              <p className="text-sm leading-8 text-white/82">{post.caption || "No caption yet."}</p>
+            </div>
+
+            <div className="flex-1 overflow-y-auto px-5 py-5 sm:px-6">
+              <div className="mb-5 flex items-center justify-between gap-4">
+                <div>
+                  <h2 className="text-lg font-semibold text-white">Comments</h2>
+                  <p className="mt-1 text-xs text-white/45">
+                    {commentsQuery.isPending ? "Memuat komentar..." : `${comments.length} komentar`}
+                  </p>
+                </div>
+                {commentsQuery.hasNextPage ? (
+                  <button
+                    type="button"
+                    onClick={() => commentsQuery.fetchNextPage()}
+                    disabled={commentsQuery.isFetchingNextPage}
+                    className="text-xs font-medium text-violet-400 transition hover:text-violet-300 disabled:opacity-50"
+                  >
+                    {commentsQuery.isFetchingNextPage ? "Memuat..." : "Load more"}
+                  </button>
                 ) : null}
               </div>
 
-              {getToken() ? (
-                <div className="mt-5 space-y-3">
-                  <Input
-                    value={commentDraft}
-                    onChange={(event) => setCommentDraft(event.target.value)}
-                    placeholder="Tulis komentar kamu..."
-                    className="h-12 rounded-full border-white/10 bg-[#050b16] text-white placeholder:text-white/35"
-                  />
-                  {commentError ? (
-                    <div className="rounded-lg border border-red-500/20 bg-red-500/10 px-3 py-2 text-sm text-red-300">
-                      {commentError}
-                    </div>
-                  ) : null}
-                  <Button
-                    type="button"
-                    onClick={() => createCommentMutation.mutate()}
-                    disabled={createCommentMutation.isPending}
-                    className="h-11 rounded-full px-5"
-                  >
-                    {createCommentMutation.isPending ? "Mengirim..." : "Kirim komentar"}
-                  </Button>
-                </div>
+              {!comments.length ? (
+                <p className="text-sm text-white/55">Belum ada komentar.</p>
               ) : (
-                <div className="mt-5 rounded-[24px] border border-white/10 bg-black/20 p-4 text-sm leading-6 text-white/55">
-                  Login dulu untuk ikut berkomentar pada post ini.
-                  <div className="mt-3">
-                    <Button asChild className="h-11 rounded-full px-5">
-                      <Link href={buildLoginHref(`/posts/${postId}`)}>Login untuk komentar</Link>
-                    </Button>
-                  </div>
-                </div>
-              )}
-
-              <div className="mt-6 space-y-4">
-                {!comments.length ? (
-                  <p className="text-sm text-white/55">Belum ada komentar.</p>
-                ) : (
-                  comments.map((item) => (
-                    <div key={item.id} className="rounded-[24px] border border-white/10 bg-black/20 p-4">
-                      <div className="flex items-start justify-between gap-4">
-                        <div className="min-w-0">
-                          <p className="font-semibold text-white">{item.author.name}</p>
-                          <p className="text-sm text-white/45">@{item.author.username} � {formatDate(item.createdAt)}</p>
+                <div className="space-y-4">
+                  {comments.map((item) => (
+                    <div key={item.id} className="border-b border-white/8 pb-4 last:border-b-0 last:pb-0">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="flex min-w-0 gap-3">
+                          <img
+                            src={item.author.avatarUrl || DEFAULT_AVATAR}
+                            alt={item.author.name}
+                            className="mt-0.5 h-9 w-9 rounded-full object-cover"
+                          />
+                          <div className="min-w-0">
+                            <p className="truncate text-sm font-semibold text-white">{item.author.name}</p>
+                            <p className="mt-1 text-xs text-white/45">{formatRelativeTime(item.createdAt)}</p>
+                            <p className="mt-3 text-sm leading-7 text-white/78">{item.text}</p>
+                          </div>
                         </div>
+
                         {item.isMine ? (
-                          <Button
+                          <button
                             type="button"
-                            variant="ghost"
                             onClick={() => deleteCommentMutation.mutate(item.id)}
                             disabled={deleteCommentMutation.isPending}
-                            className="h-9 rounded-full px-3 text-white/60 hover:bg-white/5 hover:text-white"
+                            className="text-xs font-medium text-white/55 transition hover:text-white disabled:opacity-50"
                           >
                             Hapus
-                          </Button>
+                          </button>
                         ) : null}
                       </div>
-                      <p className="mt-3 text-sm leading-6 text-white/72">{item.text}</p>
                     </div>
-                  ))
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div className="border-t border-white/10 px-5 py-4 sm:px-6">
+              <div className="flex items-center justify-between gap-4 text-white">
+                <div className="flex items-center gap-5 text-sm">
+                  <button
+                    type="button"
+                    onClick={() => handleProtectedAction(() => likeMutation.mutate())}
+                    disabled={likeMutation.isPending}
+                    className="inline-flex items-center gap-2 transition hover:text-[#ff4d93] disabled:opacity-50"
+                  >
+                    <Heart className={`h-5 w-5 ${liked ? "fill-[#ff4d93] text-[#ff4d93]" : "text-[#ff4d93]"}`} />
+                    <span>{likeCount}</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    className="inline-flex items-center gap-2"
+                  >
+                    <MessageCircle className="h-5 w-5" />
+                    <span>{post.commentCount}</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    disabled
+                    className="inline-flex cursor-not-allowed items-center gap-2 opacity-45"
+                    aria-label="Send disabled"
+                  >
+                    <Send className="h-5 w-5" />
+                    <span>{post.commentCount}</span>
+                  </button>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => handleProtectedAction(() => saveMutation.mutate())}
+                  disabled={saveMutation.isPending}
+                  className="transition hover:text-white/80 disabled:opacity-50"
+                  aria-label={saved ? "Unsave post" : "Save post"}
+                >
+                  <Bookmark className={`h-5 w-5 ${saved ? "fill-current" : ""}`} />
+                </button>
+              </div>
+
+              <div className="mt-4 flex items-center gap-3 rounded-[16px] border border-white/10 bg-[#050b16] px-3 py-2">
+                <Smile className="h-5 w-5 shrink-0 text-white/55" />
+                {session.isLoggedIn ? (
+                  <>
+                    <Input
+                      value={commentDraft}
+                      onChange={(event) => setCommentDraft(event.target.value)}
+                      placeholder="Add Comment"
+                      className="h-10 border-0 bg-transparent px-0 text-white shadow-none placeholder:text-white/28 focus-visible:ring-0"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => createCommentMutation.mutate()}
+                      disabled={createCommentMutation.isPending || !commentDraft.trim()}
+                      className="shrink-0 text-sm font-semibold text-white/45 transition hover:text-white disabled:cursor-not-allowed disabled:opacity-40"
+                    >
+                      {createCommentMutation.isPending ? "Posting..." : "Post"}
+                    </button>
+                  </>
+                ) : (
+                  <div className="flex w-full items-center justify-between gap-3">
+                    <p className="text-sm text-white/50">Login untuk menulis komentar</p>
+                    <Link href={buildLoginHref(`/posts/${postId}`)} className="text-sm font-semibold text-violet-400">
+                      Login
+                    </Link>
+                  </div>
                 )}
               </div>
 
-              {commentsQuery.hasNextPage ? (
-                <div className="mt-5 flex justify-center">
-                  <Button type="button" variant="outline" onClick={() => commentsQuery.fetchNextPage()} disabled={commentsQuery.isFetchingNextPage} className="h-11 rounded-full px-5">
-                    {commentsQuery.isFetchingNextPage ? "Memuat..." : "Load more comments"}
-                  </Button>
+              {commentError ? (
+                <div className="mt-3 rounded-lg border border-red-500/20 bg-red-500/10 px-3 py-2 text-sm text-red-300">
+                  {commentError}
                 </div>
               ) : null}
-            </Surface>
-          </div>
 
-          <Surface className="h-fit">
-            <h2 className="text-xl font-semibold text-white">Ringkasan post</h2>
-            <p className="mt-3 text-sm leading-6 text-white/55">
-              Buka daftar likes untuk melihat siapa saja yang berinteraksi, lalu gunakan komentar untuk melanjutkan diskusi dari context post yang sama.
-            </p>
-            <div className="mt-5 space-y-3 text-sm text-white/65">
-              <p>Author: @{postQuery.data.author.username}</p>
-              <p>Likes: {postQuery.data.likeCount}</p>
-              <p>Comments: {postQuery.data.commentCount}</p>
+              <div className="mt-3 flex items-center justify-between gap-4 text-xs text-white/42">
+                <button
+                  type="button"
+                  onClick={() => setLikesOpen(true)}
+                  className="transition hover:text-white/70"
+                >
+                  Lihat siapa yang like
+                </button>
+                <span>{formatDate(post.createdAt)}</span>
+              </div>
             </div>
-            <Button type="button" variant="outline" onClick={() => setLikesOpen(true)} className="mt-6 h-11 w-full rounded-full">
-              Lihat siapa yang like
-            </Button>
-          </Surface>
+          </div>
         </div>
-      </PageShell>
+
+        <div className="mx-auto flex max-w-[1220px] justify-start pt-4">
+          <Button asChild variant="outline" className="h-11 rounded-full border-white/10 bg-[#050b16] px-5 text-white">
+            <Link href={session.isLoggedIn ? "/feed" : "/"}>
+              <ArrowLeft className="h-4 w-4" />
+              Back
+            </Link>
+          </Button>
+        </div>
+      </div>
 
       {likesOpen ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm">
@@ -402,3 +587,5 @@ export default function PostDetailPage() {
     </>
   );
 }
+
+

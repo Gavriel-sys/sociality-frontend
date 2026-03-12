@@ -1,13 +1,11 @@
-"use client";
+﻿"use client";
 
 import Link from "next/link";
-import { Users } from "lucide-react";
+import { Heart, LayoutGrid, Send, Users } from "lucide-react";
 import { useParams, usePathname, useRouter } from "next/navigation";
 import { useState } from "react";
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
-  fetchMyLikes,
-  fetchMySaved,
   fetchPublicProfile,
   fetchUserFollowers,
   fetchUserFollowing,
@@ -18,11 +16,9 @@ import {
 } from "@/lib/social-api";
 import { buildLoginHref, getToken } from "@/lib/session";
 import { EmptyState } from "@/components/empty-state";
-import { PageShell, Surface } from "@/components/page-shell";
-import { PostCard } from "@/components/post-card";
 import { UserChip } from "@/components/user-chip";
 import { Button } from "@/components/ui/button";
-import { getNextPageParam } from "@/lib/utils";
+import { formatCount, getNextPageParam } from "@/lib/utils";
 
 const DEFAULT_AVATAR = "/avatars/default-avatar.png";
 
@@ -33,41 +29,29 @@ export default function PublicProfilePage() {
   const router = useRouter();
   const queryClient = useQueryClient();
 
-  const [activeTab, setActiveTab] = useState<"posts" | "likes">("posts");
+  const [activeTab, setActiveTab] = useState<"gallery" | "liked">("gallery");
   const [networkPanel, setNetworkPanel] = useState<"followers" | "following" | null>(null);
-  const isLoggedIn = !!getToken();
+  const [copied, setCopied] = useState(false);
 
   const profileQuery = useQuery({
     queryKey: ["profile", username],
     queryFn: () => fetchPublicProfile(username),
   });
 
-  const likedStateQuery = useQuery({
-    queryKey: ["profile-liked-state", username],
-    queryFn: () => fetchMyLikes({ page: 1, limit: 100 }),
-    enabled: isLoggedIn,
-  });
-
-  const savedStateQuery = useQuery({
-    queryKey: ["profile-saved-state", username],
-    queryFn: () => fetchMySaved({ page: 1, limit: 100 }),
-    enabled: isLoggedIn,
-  });
-
   const postsQuery = useInfiniteQuery({
-    queryKey: ["profile-posts", username],
-    queryFn: ({ pageParam }) => fetchUserPosts(username, { page: pageParam, limit: 10 }),
+    queryKey: ["profile-gallery", username],
+    queryFn: ({ pageParam }) => fetchUserPosts(username, { page: pageParam, limit: 18 }),
     initialPageParam: 1,
     getNextPageParam: (lastPage) => getNextPageParam(lastPage.pagination),
-    enabled: activeTab === "posts",
+    enabled: activeTab === "gallery",
   });
 
   const likesQuery = useInfiniteQuery({
-    queryKey: ["profile-likes", username],
-    queryFn: ({ pageParam }) => fetchUserLikes(username, { page: pageParam, limit: 10 }),
+    queryKey: ["profile-liked-gallery", username],
+    queryFn: ({ pageParam }) => fetchUserLikes(username, { page: pageParam, limit: 18 }),
     initialPageParam: 1,
     getNextPageParam: (lastPage) => getNextPageParam(lastPage.pagination),
-    enabled: activeTab === "likes",
+    enabled: activeTab === "liked",
   });
 
   const networkQuery = useInfiniteQuery({
@@ -102,13 +86,6 @@ export default function PublicProfilePage() {
     },
   });
 
-  const posts = postsQuery.data?.pages.flatMap((page) => page.posts) ?? [];
-  const likedPosts = likesQuery.data?.pages.flatMap((page) => page.posts) ?? [];
-  const currentPosts = activeTab === "posts" ? posts : likedPosts;
-  const networkUsers = networkQuery.data?.pages.flatMap((page) => page.users) ?? [];
-  const likeIds = new Set(likedStateQuery.data?.posts.map((post) => post.id) ?? []);
-  const saveIds = new Set(savedStateQuery.data?.posts.map((post) => post.id) ?? []);
-
   if (profileQuery.isPending) {
     return <div className="p-6 text-white">Loading profile...</div>;
   }
@@ -118,146 +95,169 @@ export default function PublicProfilePage() {
   }
 
   const profile = profileQuery.data;
+  const galleryItems = postsQuery.data?.pages.flatMap((page) => page.posts) ?? [];
+  const likedItems = likesQuery.data?.pages.flatMap((page) => page.posts) ?? [];
+  const currentItems = activeTab === "gallery" ? galleryItems : likedItems;
+  const currentQuery = activeTab === "gallery" ? postsQuery : likesQuery;
+  const networkUsers = networkQuery.data?.pages.flatMap((page) => page.users) ?? [];
+
+  async function handleShareProfile() {
+    try {
+      await navigator.clipboard.writeText(window.location.href);
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 1600);
+    } catch {
+      setCopied(false);
+    }
+  }
 
   return (
     <>
-      <PageShell
-        eyebrow="Public profile"
-        title={profile.name}
-        description={profile.bio || "Belum ada bio untuk user ini."}
-        actions={
-          profile.isMe ? (
-            <Button asChild className="h-12 rounded-full px-6">
-              <Link href="/me">Go to my profile</Link>
-            </Button>
-          ) : (
-            <Button
-              type="button"
-              variant={profile.isFollowing ? "outline" : "default"}
-              onClick={() => followMutation.mutate()}
-              disabled={followMutation.isPending}
-              className="h-12 rounded-full px-6"
-            >
-              {followMutation.isPending
-                ? "Memproses..."
-                : profile.isFollowing
-                  ? "Following"
-                  : "Follow"}
-            </Button>
-          )
-        }
-      >
-        <div className="grid gap-6 xl:grid-cols-[320px_1fr]">
-          <Surface className="space-y-5">
-            <img src={profile.avatarUrl || DEFAULT_AVATAR} alt={profile.name} className="h-32 w-32 rounded-full object-cover ring-1 ring-white/10" />
-            <p className="text-sm text-white/45">@{profile.username}</p>
-            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-1">
-              <button type="button" onClick={() => setNetworkPanel("followers")} className="rounded-[24px] border border-white/10 bg-black/20 p-4 text-left">
-                <p className="text-sm text-white/45">Followers</p>
-                <p className="mt-2 text-2xl font-semibold text-white">{profile.counts.followers}</p>
-              </button>
-              <button type="button" onClick={() => setNetworkPanel("following")} className="rounded-[24px] border border-white/10 bg-black/20 p-4 text-left">
-                <p className="text-sm text-white/45">Following</p>
-                <p className="mt-2 text-2xl font-semibold text-white">{profile.counts.following}</p>
-              </button>
-              <div className="rounded-[24px] border border-white/10 bg-black/20 p-4 text-left">
-                <p className="text-sm text-white/45">Posts</p>
-                <p className="mt-2 text-2xl font-semibold text-white">{profile.counts.post}</p>
-              </div>
-              <div className="rounded-[24px] border border-white/10 bg-black/20 p-4 text-left">
-                <p className="text-sm text-white/45">Likes</p>
-                <p className="mt-2 text-2xl font-semibold text-white">{profile.counts.likes}</p>
+      <div className="mx-auto w-full max-w-[980px] px-4 pb-28 pt-10 sm:px-6 lg:px-8">
+        <section className="space-y-8">
+          <div className="flex flex-col gap-6 md:flex-row md:items-start md:justify-between">
+            <div className="flex items-start gap-5">
+              <img
+                src={profile.avatarUrl || DEFAULT_AVATAR}
+                alt={profile.name}
+                className="h-[72px] w-[72px] rounded-full object-cover sm:h-20 sm:w-20"
+              />
+              <div>
+                <h1 className="text-3xl font-semibold text-white">{profile.name}</h1>
+                <p className="mt-2 text-xl text-white/68">{profile.username}</p>
               </div>
             </div>
-          </Surface>
 
-          <div className="space-y-6">
-            <Surface>
-              <div className="flex flex-wrap gap-3">
-                <button
-                  type="button"
-                  onClick={() => setActiveTab("posts")}
-                  className={`rounded-full px-5 py-3 text-sm font-medium ${
-                    activeTab === "posts" ? "bg-white text-black" : "border border-white/10 text-white/65"
-                  }`}
+            <div className="flex items-center gap-3">
+              {profile.isMe ? (
+                <Link
+                  href="/me"
+                  className="inline-flex h-12 items-center justify-center rounded-full border border-white/15 px-6 text-sm font-semibold text-white"
                 >
-                  Posts
-                </button>
-                <button
+                  My Profile
+                </Link>
+              ) : (
+                <Button
                   type="button"
-                  onClick={() => setActiveTab("likes")}
-                  className={`rounded-full px-5 py-3 text-sm font-medium ${
-                    activeTab === "likes" ? "bg-white text-black" : "border border-white/10 text-white/65"
-                  }`}
+                  variant={profile.isFollowing ? "outline" : "default"}
+                  onClick={() => followMutation.mutate()}
+                  disabled={followMutation.isPending}
+                  className="h-12 rounded-full border-white/15 px-6 text-sm font-semibold text-white"
                 >
-                  Likes
-                </button>
-              </div>
-            </Surface>
+                  {followMutation.isPending
+                    ? "Processing..."
+                    : profile.isFollowing
+                      ? "Following"
+                      : "Follow"}
+                </Button>
+              )}
 
-            {activeTab === "posts" && postsQuery.isPending ? (
-              <Surface className="text-center text-white/70">Memuat post...</Surface>
-            ) : activeTab === "likes" && likesQuery.isPending ? (
-              <Surface className="text-center text-white/70">Memuat likes...</Surface>
-            ) : currentPosts.length === 0 ? (
-              <EmptyState
-                title={activeTab === "posts" ? "Belum ada post" : "Belum ada post yang di-like"}
-                description={
-                  activeTab === "posts"
-                    ? "Saat user ini mulai memposting, daftarnya akan tampil di sini."
-                    : "Jika likes profile ini public dan sudah ada datanya, daftar post akan muncul di sini."
-                }
-              />
-            ) : (
-              <div className="space-y-6">
-                {currentPosts.map((post) => (
-                  <PostCard
-                    key={`${activeTab}-${post.id}`}
-                    post={post}
-                    forceLiked={activeTab === "likes" || likeIds.has(post.id)}
-                    forceSaved={saveIds.has(post.id)}
-                  />
-                ))}
-
-                {(activeTab === "posts" ? postsQuery.hasNextPage : likesQuery.hasNextPage) ? (
-                  <div className="flex justify-center">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      onClick={() =>
-                        activeTab === "posts"
-                          ? postsQuery.fetchNextPage()
-                          : likesQuery.fetchNextPage()
-                      }
-                      disabled={
-                        activeTab === "posts"
-                          ? postsQuery.isFetchingNextPage
-                          : likesQuery.isFetchingNextPage
-                      }
-                      className="h-12 rounded-full px-6"
-                    >
-                      {activeTab === "posts"
-                        ? postsQuery.isFetchingNextPage
-                          ? "Memuat..."
-                          : "Load more"
-                        : likesQuery.isFetchingNextPage
-                          ? "Memuat..."
-                          : "Load more"}
-                    </Button>
-                  </div>
-                ) : null}
-              </div>
-            )}
+              <button
+                type="button"
+                onClick={handleShareProfile}
+                className="flex h-12 w-12 items-center justify-center rounded-full border border-white/15 text-white transition hover:bg-white/[0.03]"
+                aria-label="Share profile"
+                title={copied ? "Copied" : "Share profile"}
+              >
+                <Send className="h-5 w-5" />
+              </button>
+            </div>
           </div>
-        </div>
-      </PageShell>
+
+          <p className="max-w-4xl text-lg leading-8 text-white/84">
+            {profile.bio || "This user has not added a bio yet."}
+          </p>
+
+          <div className="grid overflow-hidden rounded-[24px] border border-white/10 sm:grid-cols-4">
+            <button
+              type="button"
+              onClick={() => setActiveTab("gallery")}
+              className="border-b border-white/10 px-4 py-5 text-center transition hover:bg-white/[0.02] sm:border-b-0 sm:border-r sm:border-white/10"
+            >
+              <p className="text-4xl font-semibold text-white">{formatCount(profile.counts.post)}</p>
+              <p className="mt-2 text-xl text-white/58">Post</p>
+            </button>
+            <button
+              type="button"
+              onClick={() => setNetworkPanel("followers")}
+              className="border-b border-white/10 px-4 py-5 text-center transition hover:bg-white/[0.02] sm:border-b-0 sm:border-r sm:border-white/10"
+            >
+              <p className="text-4xl font-semibold text-white">{formatCount(profile.counts.followers)}</p>
+              <p className="mt-2 text-xl text-white/58">Followers</p>
+            </button>
+            <button
+              type="button"
+              onClick={() => setNetworkPanel("following")}
+              className="border-b border-white/10 px-4 py-5 text-center transition hover:bg-white/[0.02] sm:border-b-0 sm:border-r sm:border-white/10"
+            >
+              <p className="text-4xl font-semibold text-white">{formatCount(profile.counts.following)}</p>
+              <p className="mt-2 text-xl text-white/58">Following</p>
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveTab("liked")}
+              className="px-4 py-5 text-center transition hover:bg-white/[0.02]"
+            >
+              <p className="text-4xl font-semibold text-white">{formatCount(profile.counts.likes)}</p>
+              <p className="mt-2 text-xl text-white/58">Likes</p>
+            </button>
+          </div>
+
+          <div className="border-b border-white/10">
+            <div className="flex items-center gap-8">
+              <TabButton
+                active={activeTab === "gallery"}
+                icon={<LayoutGrid className="h-5 w-5" />}
+                label="Gallery"
+                onClick={() => setActiveTab("gallery")}
+              />
+              <TabButton
+                active={activeTab === "liked"}
+                icon={<Heart className="h-5 w-5" />}
+                label="Liked"
+                onClick={() => setActiveTab("liked")}
+              />
+            </div>
+          </div>
+
+          {currentQuery.isPending ? (
+            <div className="py-16 text-center text-white/62">Memuat koleksi...</div>
+          ) : currentItems.length ? (
+            <>
+              <GalleryGrid items={currentItems} />
+              {currentQuery.hasNextPage ? (
+                <div className="flex justify-center pt-4">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => currentQuery.fetchNextPage()}
+                    disabled={currentQuery.isFetchingNextPage}
+                    className="h-11 rounded-full border-white/10 bg-[#050b16] px-6 text-white"
+                  >
+                    {currentQuery.isFetchingNextPage ? "Memuat..." : "Load more"}
+                  </Button>
+                </div>
+              ) : null}
+            </>
+          ) : (
+            <EmptyState
+              title={activeTab === "gallery" ? "Belum ada post" : "Belum ada likes public"}
+              description={
+                activeTab === "gallery"
+                  ? "Saat user ini mulai memposting, galeri akan tampil di sini."
+                  : "Jika user ini punya liked posts yang tersedia, koleksinya akan muncul di sini."
+              }
+            />
+          )}
+        </section>
+      </div>
 
       {networkPanel ? (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm">
-          <div className="max-h-[85vh] w-full max-w-2xl overflow-hidden rounded-[32px] border border-white/10 bg-[#060915] shadow-[0_24px_80px_rgba(0,0,0,0.45)]">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/72 p-4 backdrop-blur-sm">
+          <div className="max-h-[85vh] w-full max-w-xl overflow-hidden rounded-[28px] border border-white/10 bg-[#040a16] shadow-[0_24px_80px_rgba(0,0,0,0.48)]">
             <div className="flex items-center justify-between border-b border-white/10 px-6 py-5">
               <div className="flex items-center gap-3">
-                <div className="flex h-11 w-11 items-center justify-center rounded-full border border-white/10 bg-white/[0.03] text-violet-300">
+                <div className="flex h-11 w-11 items-center justify-center rounded-full border border-white/10 bg-white/[0.03] text-white">
                   <Users className="h-5 w-5" />
                 </div>
                 <div>
@@ -267,28 +267,39 @@ export default function PublicProfilePage() {
                   <p className="text-sm text-white/45">@{profile.username}</p>
                 </div>
               </div>
-              <Button type="button" variant="ghost" onClick={() => setNetworkPanel(null)} className="rounded-full text-white/60 hover:bg-white/5 hover:text-white">
+              <button
+                type="button"
+                onClick={() => setNetworkPanel(null)}
+                className="text-sm font-medium text-white/62 transition hover:text-white"
+              >
                 Close
-              </Button>
+              </button>
             </div>
 
-            <div className="max-h-[60vh] overflow-y-auto px-6 py-5">
+            <div className="max-h-[60vh] space-y-4 overflow-y-auto px-6 py-5">
               {!networkUsers.length && networkQuery.isPending ? (
-                <p className="text-center text-white/65">Memuat daftar...</p>
+                <p className="text-center text-white/62">Memuat daftar...</p>
               ) : !networkUsers.length ? (
-                <EmptyState title="Belum ada data" description="Daftar followers/following akan muncul di sini jika sudah tersedia." />
+                <EmptyState
+                  title="Belum ada data"
+                  description="Daftar followers atau following akan muncul di sini jika sudah tersedia."
+                />
               ) : (
-                <div className="space-y-4">
-                  {networkUsers.map((user) => (
-                    <UserChip key={`${networkPanel}-${user.id}-${user.username}`} user={user} />
-                  ))}
-                </div>
+                networkUsers.map((user) => (
+                  <UserChip key={`${networkPanel}-${user.id}-${user.username}`} user={user} />
+                ))
               )}
             </div>
 
             {networkQuery.hasNextPage ? (
               <div className="border-t border-white/10 px-6 py-4">
-                <Button type="button" variant="outline" onClick={() => networkQuery.fetchNextPage()} disabled={networkQuery.isFetchingNextPage} className="h-11 w-full rounded-full">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => networkQuery.fetchNextPage()}
+                  disabled={networkQuery.isFetchingNextPage}
+                  className="h-11 w-full rounded-full border-white/10 bg-[#050b16] text-white"
+                >
                   {networkQuery.isFetchingNextPage ? "Memuat..." : "Load more"}
                 </Button>
               </div>
@@ -299,3 +310,50 @@ export default function PublicProfilePage() {
     </>
   );
 }
+
+function TabButton({
+  active,
+  icon,
+  label,
+  onClick,
+}: {
+  active: boolean;
+  icon: import("react").ReactNode;
+  label: string;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`relative flex items-center gap-3 px-1 py-4 text-lg font-medium transition ${
+        active ? "text-white" : "text-white/52"
+      }`}
+    >
+      {icon}
+      <span>{label}</span>
+      {active ? <span className="absolute inset-x-0 bottom-0 h-0.5 bg-white" /> : null}
+    </button>
+  );
+}
+
+function GalleryGrid({
+  items,
+}: {
+  items: { id: number; imageUrl: string | null; caption: string | null }[];
+}) {
+  return (
+    <div className="grid grid-cols-2 gap-[2px] overflow-hidden rounded-[10px] bg-white/10 sm:grid-cols-3">
+      {items.map((item) => (
+        <Link key={item.id} href={`/posts/${item.id}`} className="block overflow-hidden bg-black">
+          <img
+            src={item.imageUrl || DEFAULT_AVATAR}
+            alt={item.caption || "Post image"}
+            className="aspect-square w-full object-cover transition duration-300 hover:scale-[1.02]"
+          />
+        </Link>
+      ))}
+    </div>
+  );
+}
+

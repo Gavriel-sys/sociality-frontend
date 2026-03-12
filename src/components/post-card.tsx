@@ -1,7 +1,7 @@
-"use client";
+﻿"use client";
 
 import Link from "next/link";
-import { Bookmark, Heart, MessageCircle, MoveRight } from "lucide-react";
+import { Bookmark, Heart, MessageCircle, Send } from "lucide-react";
 import { usePathname, useRouter } from "next/navigation";
 import { useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
@@ -9,7 +9,6 @@ import { likePost, savePost, unlikePost, unsavePost } from "@/lib/social-api";
 import { buildLoginHref, getToken } from "@/lib/session";
 import type { PostItem } from "@/types/social";
 import { formatRelativeTime } from "@/lib/utils";
-import { Button } from "@/components/ui/button";
 
 const DEFAULT_AVATAR = "/avatars/default-avatar.png";
 
@@ -18,7 +17,6 @@ type Props = {
   forceLiked?: boolean;
   forceSaved?: boolean;
   showDetailAction?: boolean;
-  onOpenLikes?: (post: PostItem) => void;
 };
 
 type PendingState = {
@@ -32,17 +30,20 @@ export function PostCard({
   forceLiked,
   forceSaved,
   showDetailAction = true,
-  onOpenLikes,
 }: Props) {
   const pathname = usePathname();
   const router = useRouter();
   const queryClient = useQueryClient();
 
+  const [expanded, setExpanded] = useState(false);
   const [pendingState, setPendingState] = useState<PendingState | null>(null);
 
   const liked = pendingState?.liked ?? forceLiked ?? post.likedByMe ?? false;
   const saved = pendingState?.saved ?? forceSaved ?? post.savedByMe ?? false;
   const likeCount = pendingState?.likeCount ?? post.likeCount;
+  const caption = post.caption?.trim() || "No caption yet.";
+  const shouldClamp = caption.length > 120;
+  const displayCaption = shouldClamp && !expanded ? `${caption.slice(0, 120).trimEnd()}...` : caption;
 
   function requireLogin() {
     router.push(buildLoginHref(pathname));
@@ -122,111 +123,85 @@ export function PostCard({
   }
 
   return (
-    <article className="overflow-hidden rounded-[32px] border border-white/10 bg-[#070b14]/85 shadow-[0_20px_70px_rgba(0,0,0,0.35)] backdrop-blur-sm">
-      <div className="flex items-center justify-between gap-4 p-5 sm:p-6">
-        <Link
-          href={`/profile/${post.author.username}`}
-          className="flex min-w-0 items-center gap-4"
-        >
+    <article className="mx-auto w-full max-w-[472px] border-b border-white/10 pb-8 last:border-b-0 last:pb-0">
+      <div className="flex items-center gap-4">
+        <Link href={`/profile/${post.author.username}`} className="flex items-center gap-4">
           <img
             src={post.author.avatarUrl || DEFAULT_AVATAR}
             alt={post.author.name}
-            className="h-12 w-12 rounded-full object-cover ring-1 ring-white/10"
+            className="h-14 w-14 rounded-full object-cover"
           />
-          <div className="min-w-0">
-            <p className="truncate font-semibold text-white">{post.author.name}</p>
-            <div className="flex flex-wrap items-center gap-2 text-sm text-white/45">
-              <span className="truncate">@{post.author.username}</span>
-              <span className="h-1 w-1 rounded-full bg-white/25" />
-              <span>{formatRelativeTime(post.createdAt)}</span>
-            </div>
+          <div>
+            <p className="text-xl font-semibold text-white">{post.author.name}</p>
+            <p className="mt-1 text-sm text-white/55">{formatRelativeTime(post.createdAt)}</p>
           </div>
         </Link>
-
-        {showDetailAction ? (
-          <Link
-            href={`/posts/${post.id}`}
-            className="text-sm font-medium text-white/60 transition hover:text-white"
-          >
-            Open
-          </Link>
-        ) : null}
       </div>
 
-      <div className="px-5 pb-5 sm:px-6 sm:pb-6">
-        <div className="overflow-hidden rounded-[28px] border border-white/10 bg-black/40">
-          <img
-            src={post.imageUrl || DEFAULT_AVATAR}
-            alt={post.caption || "Post image"}
-            className="aspect-[4/3] w-full object-cover"
-          />
-        </div>
+      <Link href={`/posts/${post.id}`} className="mt-4 block overflow-hidden rounded-[18px] bg-[#050b16]">
+        <img
+          src={post.imageUrl || DEFAULT_AVATAR}
+          alt={post.caption || "Post image"}
+          className="aspect-square w-full object-cover"
+        />
+      </Link>
 
-        <div className="mt-5 flex flex-wrap items-center gap-3 text-sm text-white/55">
+      <div className="mt-4 flex items-center justify-between gap-4 text-white">
+        <div className="flex items-center gap-5 text-sm text-white">
           <button
             type="button"
-            onClick={() => onOpenLikes?.(post)}
-            className="font-medium text-white transition hover:text-violet-300"
-          >
-            {likeCount} suka
-          </button>
-          <span className="h-1 w-1 rounded-full bg-white/25" />
-          <span>{post.commentCount} komentar</span>
-        </div>
-
-        <p className="mt-3 text-sm leading-6 text-white/78 sm:text-base">
-          <span className="font-semibold text-white">@{post.author.username}</span>{" "}
-          {post.caption || "Belum ada caption."}
-        </p>
-
-        <div className="mt-5 flex flex-wrap gap-2">
-          <Button
-            type="button"
-            variant={liked ? "default" : "outline"}
             onClick={handleLikeClick}
             disabled={likeMutation.isPending}
-            className="h-11 rounded-full px-4"
+            className="inline-flex items-center gap-2 text-white transition hover:text-[#ff4d93]"
           >
-            <Heart className={`h-4 w-4 ${liked ? "fill-current" : ""}`} />
-            {liked ? "Liked" : "Like"}
-          </Button>
+            <Heart className={`h-5 w-5 ${liked ? "fill-[#ff4d93] text-[#ff4d93]" : "text-[#ff4d93]"}`} />
+            <span>{likeCount}</span>
+          </button>
 
-          <Button
-            type="button"
-            variant={saved ? "default" : "outline"}
-            onClick={handleSaveClick}
-            disabled={saveMutation.isPending}
-            className="h-11 rounded-full px-4"
-          >
-            <Bookmark className={`h-4 w-4 ${saved ? "fill-current" : ""}`} />
-            {saved ? "Saved" : "Save"}
-          </Button>
-
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() => router.push(`/posts/${post.id}`)}
-            className="h-11 rounded-full px-4"
-          >
-            <MessageCircle className="h-4 w-4" />
-            Komentar
-          </Button>
+          <Link href={`/posts/${post.id}`} className="inline-flex items-center gap-2 text-white transition hover:text-white/80">
+            <MessageCircle className="h-5 w-5" />
+            <span>{post.commentCount}</span>
+          </Link>
 
           {showDetailAction ? (
-            <Button
-              asChild
+            <button
               type="button"
-              variant="ghost"
-              className="h-11 rounded-full px-4 text-white/75 hover:bg-white/5 hover:text-white"
+              disabled
+              className="inline-flex cursor-not-allowed items-center gap-2 text-white opacity-45"
+              aria-label="Send disabled"
             >
-              <Link href={`/posts/${post.id}`}>
-                Detail
-                <MoveRight className="h-4 w-4" />
-              </Link>
-            </Button>
+              <Send className="h-5 w-5" />
+              <span>{post.commentCount}</span>
+            </button>
           ) : null}
         </div>
+
+        <button
+          type="button"
+          onClick={handleSaveClick}
+          disabled={saveMutation.isPending}
+          className="text-white transition hover:text-white/80"
+          aria-label={saved ? "Unsave post" : "Save post"}
+        >
+          <Bookmark className={`h-5 w-5 ${saved ? "fill-current" : ""}`} />
+        </button>
+      </div>
+
+      <div className="mt-4 space-y-2">
+        <p className="text-lg font-semibold text-white">{post.author.name}</p>
+        <p className="text-sm leading-8 text-white/78">{displayCaption}</p>
+        {shouldClamp ? (
+          <button
+            type="button"
+            onClick={() => setExpanded((current) => !current)}
+            className="text-sm font-medium text-violet-400 transition hover:text-violet-300"
+          >
+            {expanded ? "Show Less" : "Show More"}
+          </button>
+        ) : null}
       </div>
     </article>
   );
 }
+
+

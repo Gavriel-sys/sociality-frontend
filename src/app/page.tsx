@@ -1,151 +1,100 @@
-"use client";
+﻿"use client";
 
-import type { ReactNode } from "react";
-import Link from "next/link";
-import { ArrowRight, Bookmark, MessageCircle, Search, UserRoundPlus } from "lucide-react";
-import { useEffect } from "react";
+import { Bookmark, Heart, MessageCircle, Send } from "lucide-react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { getToken } from "@/lib/session";
+import { useSessionSnapshot } from "@/lib/use-session";
+
+const DEFAULT_AVATAR = "/avatars/default-avatar.png";
 
 export default function HomePage() {
   const router = useRouter();
-  const hasToken = !!getToken();
+  const session = useSessionSnapshot();
+  const [expanded, setExpanded] = useState(false);
 
   useEffect(() => {
-    if (hasToken) {
+    if (session.mounted && session.isLoggedIn) {
       router.replace("/feed");
     }
-  }, [hasToken, router]);
+  }, [router, session.isLoggedIn, session.mounted]);
 
-  if (hasToken) {
+  if (session.mounted && session.isLoggedIn) {
     return <div className="p-6 text-white">Loading...</div>;
   }
 
+  const caption =
+    "Creating unforgettable moments with my favorite person! Let's cherish every second together and keep smiling through every scene.";
+  const shortCaption = `${caption.slice(0, 86).trimEnd()}...`;
+
   return (
-    <div className="mx-auto flex w-full max-w-6xl flex-col gap-8 px-4 py-8 sm:px-6 lg:px-8">
-      <section className="grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">
-        <div className="rounded-[40px] border border-white/10 bg-white/[0.03] p-8 shadow-[0_24px_80px_rgba(0,0,0,0.35)] backdrop-blur-sm sm:p-10">
-          <p className="text-xs font-semibold uppercase tracking-[0.32em] text-white/45">
-            Sociality MVP
-          </p>
-          <h1 className="mt-4 max-w-3xl text-4xl font-semibold tracking-tight text-white sm:text-5xl lg:text-6xl">
-            Tempat yang ringkas untuk posting, follow, dan ngobrol lewat timeline.
-          </h1>
-          <p className="mt-5 max-w-2xl text-sm leading-7 text-white/65 sm:text-base">
-            Sociality menggabungkan feed pribadi, profile publik, likes, comments,
-            saves, dan follow graph dalam alur yang simpel. Login atau register,
-            lalu langsung mulai bangun timeline kamu.
-          </p>
-
-          <div className="mt-8 flex flex-wrap gap-3">
-            <Link
-              href="/register"
-              className="inline-flex h-12 items-center justify-center rounded-full bg-violet-600 px-6 text-sm font-semibold text-white"
-            >
-              Mulai Sekarang
-            </Link>
-            <Link
-              href="/login"
-              className="inline-flex h-12 items-center justify-center rounded-full border border-white/15 px-6 text-sm font-semibold text-white"
-            >
-              Saya Sudah Punya Akun
-            </Link>
-          </div>
-
-          <div className="mt-10 grid gap-3 sm:grid-cols-3">
-            <FeatureCard
-              icon={<Search className="h-5 w-5" />}
-              title="Search & discover"
-              text="Cari user, buka profil publik, dan eksplor postingan mereka."
-            />
-            <FeatureCard
-              icon={<Bookmark className="h-5 w-5" />}
-              title="Save for later"
-              text="Simpan post penting dan buka lagi saat kamu butuh."
-            />
-            <FeatureCard
-              icon={<UserRoundPlus className="h-5 w-5" />}
-              title="Follow graph"
-              text="Bangun feed personal dengan akun yang benar-benar kamu suka."
-            />
+    <div className="mx-auto w-full max-w-[560px] px-4 pb-28 pt-8 sm:px-6">
+      <article className="mx-auto w-full max-w-[472px] border-b border-white/10 pb-8">
+        <div className="flex items-center gap-4">
+          <img src={DEFAULT_AVATAR} alt="Johndoe" className="h-14 w-14 rounded-full object-cover" />
+          <div>
+            <p className="text-xl font-semibold text-white">Johndoe</p>
+            <p className="mt-1 text-sm text-white/55">1 Minutes Ago</p>
           </div>
         </div>
 
-        <div className="space-y-6 rounded-[40px] border border-white/10 bg-[#060915]/90 p-6 shadow-[0_24px_80px_rgba(0,0,0,0.35)] backdrop-blur-sm sm:p-8">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-white/45">Preview before login</p>
-              <h2 className="text-2xl font-semibold text-white">Sample timeline card</h2>
-            </div>
-            <span className="rounded-full border border-white/10 px-3 py-1 text-xs uppercase tracking-[0.24em] text-white/45">
-              Demo
-            </span>
-          </div>
+        <div className="relative mt-4 aspect-square overflow-hidden rounded-[18px] bg-[linear-gradient(135deg,#1e3a8a_0%,#60a5fa_24%,#fde68a_48%,#fb7185_72%,#7c3aed_100%)]">
+          <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_18%,rgba(255,255,255,0.85),transparent_10%),radial-gradient(circle_at_79%_16%,rgba(255,255,255,0.72),transparent_11%),radial-gradient(circle_at_86%_36%,rgba(255,255,255,0.58),transparent_10%),radial-gradient(circle_at_18%_38%,rgba(255,255,255,0.46),transparent_9%),radial-gradient(circle_at_62%_20%,rgba(255,255,255,0.56),transparent_12%)] opacity-90" />
 
-          <div className="overflow-hidden rounded-[32px] border border-white/10 bg-black/40">
-            <img
-              src="/avatars/default-avatar.png"
-              alt="preview"
-              className="aspect-[4/3] w-full object-cover"
-            />
-          </div>
+          <AvatarBubble className="left-[7%] top-[32%] h-[22%] w-[22%]" />
+          <AvatarBubble className="left-[18%] top-[9%] h-[17%] w-[17%]" />
+          <AvatarBubble className="left-[56%] top-[5%] h-[18%] w-[18%]" />
+          <AvatarBubble className="left-[74%] top-[12%] h-[17%] w-[17%]" />
+          <AvatarBubble className="left-[74%] top-[42%] h-[18%] w-[18%]" />
+          <AvatarBubble className="left-[6%] top-[63%] h-[15%] w-[15%]" />
 
-          <div className="rounded-[28px] border border-white/10 bg-white/[0.03] p-5">
-            <div className="flex items-center gap-4">
-              <img
-                src="/avatars/default-avatar.png"
-                alt="avatar"
-                className="h-12 w-12 rounded-full object-cover"
-              />
-              <div>
-                <p className="font-semibold text-white">Johndoe</p>
-                <p className="text-sm text-white/45">Baru saja</p>
-              </div>
-            </div>
-
-            <p className="mt-4 text-sm leading-6 text-white/75">
-              Layout utama akan mengikuti gaya gelap yang sudah kamu mulai, tapi
-              sekarang dengan hirarki konten yang lebih jelas, akses halaman lebih
-              lengkap, dan flow user yang utuh dari login sampai interaksi sosial.
-            </p>
-
-            <div className="mt-5 flex flex-wrap gap-2 text-sm text-white/55">
-              <span className="inline-flex items-center gap-2 rounded-full border border-white/10 px-3 py-2">
-                <MessageCircle className="h-4 w-4" />
-                Comments
-              </span>
-              <span className="inline-flex items-center gap-2 rounded-full border border-white/10 px-3 py-2">
-                <Bookmark className="h-4 w-4" />
-                Saved posts
-              </span>
-              <span className="inline-flex items-center gap-2 rounded-full border border-white/10 px-3 py-2">
-                <ArrowRight className="h-4 w-4" />
-                Public profiles
-              </span>
-            </div>
+          <div className="absolute left-1/2 top-[58%] h-[58%] w-[58%] -translate-x-1/2 -translate-y-1/2 overflow-hidden rounded-full border-[10px] border-white/20 shadow-[0_24px_80px_rgba(0,0,0,0.25)]">
+            <img src={DEFAULT_AVATAR} alt="Main preview" className="h-full w-full object-cover scale-[1.12]" />
           </div>
         </div>
-      </section>
+
+        <div className="mt-4 flex items-center justify-between gap-4 text-white">
+          <div className="flex items-center gap-5 text-sm text-white">
+            <button type="button" className="inline-flex items-center gap-2 text-white">
+              <Heart className="h-5 w-5 fill-[#ff4d93] text-[#ff4d93]" />
+              <span>20</span>
+            </button>
+
+            <button type="button" className="inline-flex items-center gap-2 text-white">
+              <MessageCircle className="h-5 w-5" />
+              <span>20</span>
+            </button>
+
+            <button type="button" className="inline-flex items-center gap-2 text-white">
+              <Send className="h-5 w-5" />
+              <span>20</span>
+            </button>
+          </div>
+
+          <button type="button" className="text-white" aria-label="Save post preview">
+            <Bookmark className="h-5 w-5" />
+          </button>
+        </div>
+
+        <div className="mt-4 space-y-2">
+          <p className="text-lg font-semibold text-white">Johndoe</p>
+          <p className="text-sm leading-8 text-white/78">{expanded ? caption : shortCaption}</p>
+          <button
+            type="button"
+            onClick={() => setExpanded((current) => !current)}
+            className="text-sm font-medium text-violet-400 transition hover:text-violet-300"
+          >
+            {expanded ? "Show Less" : "Show More"}
+          </button>
+        </div>
+      </article>
     </div>
   );
 }
 
-function FeatureCard({
-  icon,
-  title,
-  text,
-}: {
-  icon: ReactNode;
-  title: string;
-  text: string;
-}) {
+function AvatarBubble({ className }: { className: string }) {
   return (
-    <div className="rounded-[28px] border border-white/10 bg-black/20 p-4">
-      <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-full border border-white/10 bg-white/[0.03] text-violet-300">
-        {icon}
-      </div>
-      <p className="font-medium text-white">{title}</p>
-      <p className="mt-2 text-sm leading-6 text-white/55">{text}</p>
+    <div className={`absolute overflow-hidden rounded-full border-4 border-white/20 shadow-[0_14px_30px_rgba(0,0,0,0.18)] ${className}`}>
+      <img src={DEFAULT_AVATAR} alt="Preview avatar" className="h-full w-full object-cover" />
     </div>
   );
 }
