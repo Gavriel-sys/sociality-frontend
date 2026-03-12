@@ -1,3 +1,20 @@
+export type Pagination = {
+  page: number;
+  limit: number;
+  total: number;
+  totalPages: number;
+};
+
+export type UserSummary = {
+  id: number;
+  username: string;
+  name: string;
+  avatarUrl: string | null;
+  isFollowedByMe?: boolean;
+  followsMe?: boolean;
+  isMe?: boolean;
+};
+
 export type UserProfile = {
   id: number;
   name: string;
@@ -10,10 +27,10 @@ export type UserProfile = {
 };
 
 export type UserStats = {
+  posts: number;
   followers: number;
   following: number;
   likes: number;
-  posts: number;
 };
 
 export type MeData = {
@@ -21,49 +38,62 @@ export type MeData = {
   stats: UserStats;
 };
 
-export type PostUser = {
-  id?: number;
-  username?: string;
-  name?: string;
-  avatarUrl?: string | null;
+export type PublicProfileData = UserProfile & {
+  counts: {
+    post: number;
+    followers: number;
+    following: number;
+    likes: number;
+  };
+  isFollowing: boolean;
+  isMe: boolean;
 };
 
 export type PostItem = {
   id: number;
-  caption?: string | null;
-  imageUrl?: string | null;
-  createdAt?: string;
-  likeCount?: number;
-  commentCount?: number;
-  isLiked?: boolean;
-  isSaved?: boolean;
-  author?: PostUser;
-  user?: PostUser;
+  caption: string | null;
+  imageUrl: string | null;
+  createdAt: string;
+  likeCount: number;
+  commentCount: number;
+  likedByMe?: boolean;
+  likedAt?: string;
+  savedByMe?: boolean;
+  author: UserSummary;
 };
 
 export type FeedData = {
   items: PostItem[];
-  pagination?: {
-    page: number;
-    limit: number;
-    total: number;
-    totalPages: number;
-  };
+  pagination: Pagination;
+};
+
+export type PostListData = {
+  posts: PostItem[];
+  pagination: Pagination;
 };
 
 export type CommentItem = {
   id: number;
-  content?: string;
-  comment?: string;
-  text?: string;
-  createdAt?: string;
-  user?: PostUser;
-  author?: PostUser;
+  text: string;
+  createdAt: string;
+  author: UserSummary;
+  isMine: boolean;
 };
 
-export type UserPublicData = {
-  profile: UserProfile;
-  stats: UserStats;
-  posts?: PostItem[];
-  isFollowing?: boolean;
+export type CommentListData = {
+  comments: CommentItem[];
+  pagination: Pagination;
+};
+
+export type UserListData = {
+  users: UserSummary[];
+  pagination: Pagination;
+};
+
+export type PostLikesData = UserListData;
+export type SearchUsersData = UserListData;
+
+export type AuthData = {
+  token: string;
+  user: UserProfile;
 };

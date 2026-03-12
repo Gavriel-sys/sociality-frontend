@@ -1,65 +1,89 @@
 "use client";
 
 import Link from "next/link";
-import { useQuery } from "@tanstack/react-query";
-import { api, authHeaders, unwrapResponse } from "@/lib/api";
-import type { FeedData } from "@/types/social";
+import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
+import { fetchFeed, fetchMySaved } from "@/lib/social-api";
+import { EmptyState } from "@/components/empty-state";
+import { PageShell, Surface } from "@/components/page-shell";
 import { PostCard } from "@/components/post-card";
-
-async function fetchFeed(): Promise<FeedData> {
-  const res = await api.get("/feed", {
-    headers: authHeaders(),
-  });
-
-  return unwrapResponse<FeedData>(res);
-}
+import { Button } from "@/components/ui/button";
+import { getNextPageParam } from "@/lib/utils";
 
 export default function FeedPage() {
-  const {
-    data: feed,
-    isPending,
-    error,
-  } = useQuery({
+  const feedQuery = useInfiniteQuery({
     queryKey: ["feed"],
-    queryFn: fetchFeed,
+    queryFn: ({ pageParam }) => fetchFeed({ page: pageParam, limit: 10 }),
+    initialPageParam: 1,
+    getNextPageParam: (lastPage) => getNextPageParam(lastPage.pagination),
   });
 
-  if (isPending) return <div>Loading...</div>;
-  if (error) return <div>Gagal mengambil feed</div>;
-  if (!feed) return <div>Feed tidak ada</div>;
+  const savedQuery = useQuery({
+    queryKey: ["saved-post-state"],
+    queryFn: () => fetchMySaved({ page: 1, limit: 100 }),
+  });
 
-  if (feed.items.length === 0) {
-    return (
-      <div className="rounded-xl border p-6 text-center space-y-2">
-        <h2 className="text-xl font-semibold">Belum ada post</h2>
-        <p className="text-sm text-gray-500">
-          Post pertama akan muncul di halaman ini.
-        </p>
-        <Link
-          href="/posts/create"
-          className="inline-block rounded border px-4 py-2 text-sm font-medium"
-        >
-          Buat post pertama
-        </Link>
-      </div>
-    );
-  }
+  const posts = feedQuery.data?.pages.flatMap((page) => page.items) ?? [];
+  const savedIds = new Set(savedQuery.data?.posts.map((post) => post.id) ?? []);
 
   return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between gap-3">
-        <h1 className="text-2xl font-bold">Feed</h1>
-        <Link
-          href="/posts/create"
-          className="rounded border px-4 py-2 text-sm font-medium"
-        >
-          Create Post
-        </Link>
-      </div>
+    <PageShell
+      eyebrow="Private timeline"
+      title="Feed kamu sudah siap untuk diisi cerita baru."
+      description="Lihat update dari akun yang kamu follow, lanjutkan percakapan di detail post, dan simpan konten penting tanpa kehilangan konteks."
+      actions={
+        <Button asChild className="h-12 rounded-full px-6">
+          <Link href="/posts/create">Create Post</Link>
+        </Button>
+      }
+    >
+      <Surface className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+        <div>
+          <p className="text-lg font-semibold text-white">Timeline pribadi</p>
+          <p className="mt-1 text-sm text-white/55">
+            Semua interaksi akan sinkron langsung ke likes, comments, saves, dan profile.
+          </p>
+        </div>
+        <div className="flex flex-wrap gap-3 text-sm text-white/55">
+          <span className="rounded-full border border-white/10 px-4 py-2">Loading, empty, dan error state lengkap</span>
+          <span className="rounded-full border border-white/10 px-4 py-2">Pagination siap dipakai</span>
+        </div>
+      </Surface>
 
-      {feed.items.map((post) => (
-        <PostCard key={post.id} post={post} />
-      ))}
-    </div>
+      {feedQuery.isPending ? (
+        <Surface className="text-center text-white/70">Mengambil feed...</Surface>
+      ) : feedQuery.error ? (
+        <EmptyState
+          title="Feed belum bisa dimuat"
+          description="Ada kendala saat mengambil timeline. Coba refresh lagi sebentar."
+        />
+      ) : posts.length === 0 ? (
+        <EmptyState
+          title="Belum ada post di feed kamu"
+          description="Mulai dengan membuat post pertama atau follow akun lain supaya timeline terasa hidup."
+          ctaLabel="Buat Post"
+          ctaHref="/posts/create"
+        />
+      ) : (
+        <div className="space-y-6">
+          {posts.map((post) => (
+            <PostCard key={post.id} post={post} forceSaved={savedIds.has(post.id)} />
+          ))}
+
+          {feedQuery.hasNextPage ? (
+            <div className="flex justify-center">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => feedQuery.fetchNextPage()}
+                disabled={feedQuery.isFetchingNextPage}
+                className="h-12 rounded-full px-6"
+              >
+                {feedQuery.isFetchingNextPage ? "Memuat..." : "Load more"}
+              </Button>
+            </div>
+          ) : null}
+        </div>
+      )}
+    </PageShell>
   );
 }
