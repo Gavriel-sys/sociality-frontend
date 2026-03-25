@@ -1,3 +1,5 @@
+// social-api.ts
+
 import { api, authHeaders, unwrapResponse } from "@/lib/api";
 import type {
   AuthData,
@@ -43,9 +45,7 @@ export async function register(payload: {
 }
 
 export async function fetchMe() {
-  const res = await api.get("/me", {
-    headers: authHeaders(),
-  });
+  const res = await api.get("/me");
 
   return unwrapResponse<MeData>(res);
 }
@@ -92,7 +92,10 @@ export async function deletePost(postId: string) {
   return unwrapResponse<{ deleted: boolean }>(res);
 }
 
-export async function fetchPostComments(postId: string, options?: PagingOptions) {
+export async function fetchPostComments(
+  postId: string,
+  options?: PagingOptions,
+) {
   const res = await api.get(`/posts/${postId}/comments`, {
     params: withPaging({
       page: options?.page ?? 1,
@@ -104,9 +107,16 @@ export async function fetchPostComments(postId: string, options?: PagingOptions)
 }
 
 export async function createComment(postId: string, text: string) {
+  if (!text?.trim()) {
+    throw new Error("Komentar tidak boleh kosong");
+  }
+  const numericPostId = Number(postId);
+  if (isNaN(numericPostId)) {
+    throw new Error("Invalid post ID");
+  }
   const res = await api.post(
-    `/posts/${postId}/comments`,
-    { text },
+    `/posts/${numericPostId}/comments`,
+    { text: text.trim() }, // Backend expects "text", not "content"
     {
       headers: authHeaders(),
     },
@@ -123,14 +133,10 @@ export async function deleteComment(commentId: number) {
   return unwrapResponse<{ deleted: boolean }>(res);
 }
 
-export async function likePost(postId: number) {
-  const res = await api.post(
-    `/posts/${postId}/like`,
-    {},
-    {
-      headers: authHeaders(),
-    },
-  );
+export async function likePost(postId: number | string) {
+  const res = await api.post(`/posts/${postId}/like`, undefined, {
+    headers: authHeaders(),
+  });
 
   return unwrapResponse<{ liked: boolean; likeCount: number }>(res);
 }
@@ -143,19 +149,18 @@ export async function unlikePost(postId: number) {
   return unwrapResponse<{ liked: boolean; likeCount: number }>(res);
 }
 
-export async function savePost(postId: number) {
-  const res = await api.post(
-    `/posts/${postId}/save`,
-    {},
-    {
-      headers: authHeaders(),
-    },
-  );
+export async function savePost(postId: number | string) {
+  console.log("📁 savePost called with:", postId);
+  const numericId = Number(postId);
+  const res = await api.post(`/posts/${numericId}/save`, undefined, {
+    headers: authHeaders(),
+  });
 
   return unwrapResponse<{ saved: boolean }>(res);
 }
 
 export async function unsavePost(postId: number) {
+  console.log("📁 unsavePost called with:", postId);
   const res = await api.delete(`/posts/${postId}/save`, {
     headers: authHeaders(),
   });
@@ -180,7 +185,10 @@ export async function fetchPublicProfile(username: string) {
   return unwrapResponse<PublicProfileData>(res);
 }
 
-export async function fetchUserPosts(username: string, options?: PagingOptions) {
+export async function fetchUserPosts(
+  username: string,
+  options?: PagingOptions,
+) {
   const res = await api.get(`/users/${username}/posts`, {
     headers: authHeaders(),
     params: withPaging(options),
@@ -189,7 +197,10 @@ export async function fetchUserPosts(username: string, options?: PagingOptions) 
   return unwrapResponse<PostListData>(res);
 }
 
-export async function fetchUserLikes(username: string, options?: PagingOptions) {
+export async function fetchUserLikes(
+  username: string,
+  options?: PagingOptions,
+) {
   const res = await api.get(`/users/${username}/likes`, {
     headers: authHeaders(),
     params: withPaging(options),
@@ -246,7 +257,10 @@ export async function fetchMyFollowing(options?: PagingOptions) {
   return unwrapResponse<UserListData>(res);
 }
 
-export async function fetchUserFollowers(username: string, options?: PagingOptions) {
+export async function fetchUserFollowers(
+  username: string,
+  options?: PagingOptions,
+) {
   const res = await api.get(`/users/${username}/followers`, {
     headers: authHeaders(),
     params: withPaging(options),
@@ -255,7 +269,10 @@ export async function fetchUserFollowers(username: string, options?: PagingOptio
   return unwrapResponse<UserListData>(res);
 }
 
-export async function fetchUserFollowing(username: string, options?: PagingOptions) {
+export async function fetchUserFollowing(
+  username: string,
+  options?: PagingOptions,
+) {
   const res = await api.get(`/users/${username}/following`, {
     headers: authHeaders(),
     params: withPaging(options),

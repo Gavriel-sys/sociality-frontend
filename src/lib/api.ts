@@ -1,3 +1,5 @@
+// src/lib/api.ts
+
 import axios, { type AxiosResponse } from "axios";
 import { getToken } from "@/lib/session";
 
@@ -7,6 +9,9 @@ export const api = axios.create({
 
 api.interceptors.request.use((config) => {
   const token = getToken();
+  console.log("🔗 API Request:", config.method?.toUpperCase(), config.url, {
+    hasToken: !!token,
+  });
 
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
@@ -14,6 +19,23 @@ api.interceptors.request.use((config) => {
 
   return config;
 });
+
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (error.response?.status === 401) {
+      // Token expired, clear session
+      localStorage.removeItem("token");
+      window.dispatchEvent(new Event("sociality-session-change"));
+    }
+    console.error(
+      "🚨 API Error:",
+      error.response?.status,
+      error.response?.data?.message || error.message,
+    );
+    return Promise.reject(error);
+  },
+);
 
 export function authHeaders() {
   const token = getToken();

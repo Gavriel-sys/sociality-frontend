@@ -1,4 +1,6 @@
-﻿"use client";
+﻿// src/components/user-chip.tsx
+
+"use client";
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
@@ -15,10 +17,7 @@ type UserChipProps = {
   showFollowAction?: boolean;
 };
 
-export function UserChip({
-  user,
-  showFollowAction = true,
-}: UserChipProps) {
+export function UserChip({ user, showFollowAction = true }: UserChipProps) {
   const pathname = usePathname();
   const router = useRouter();
   const queryClient = useQueryClient();
@@ -43,7 +42,10 @@ export function UserChip({
 
   return (
     <div className="flex flex-col gap-4 rounded-[22px] border border-white/10 bg-[#050b16]/88 p-4 sm:flex-row sm:items-center sm:justify-between">
-      <Link href={`/profile/${user.username}`} className="flex min-w-0 items-center gap-4">
+      <Link
+        href={`/profile/${user.username}`}
+        className="flex min-w-0 items-center gap-4"
+      >
         <img
           src={user.avatarUrl || DEFAULT_AVATAR}
           alt={user.name}

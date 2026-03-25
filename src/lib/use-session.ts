@@ -1,4 +1,6 @@
-﻿"use client";
+﻿// use-session.ts
+
+"use client";
 
 import { useEffect, useState } from "react";
 import {
@@ -21,7 +23,8 @@ const INITIAL_SNAPSHOT: ClientSessionSnapshot = {
 };
 
 export function useSessionSnapshot() {
-  const [snapshot, setSnapshot] = useState<ClientSessionSnapshot>(INITIAL_SNAPSHOT);
+  const [snapshot, setSnapshot] =
+    useState<ClientSessionSnapshot>(INITIAL_SNAPSHOT);
 
   useEffect(() => {
     function syncSession() {

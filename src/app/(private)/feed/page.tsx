@@ -1,7 +1,7 @@
 ﻿"use client";
 
-import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
-import { fetchFeed, fetchMySaved } from "@/lib/social-api";
+import { useInfiniteQuery } from "@tanstack/react-query";
+import { fetchFeed } from "@/lib/social-api";
 import { EmptyState } from "@/components/empty-state";
 import { PostCard } from "@/components/post-card";
 import { Button } from "@/components/ui/button";
@@ -15,13 +15,7 @@ export default function FeedPage() {
     getNextPageParam: (lastPage) => getNextPageParam(lastPage.pagination),
   });
 
-  const savedQuery = useQuery({
-    queryKey: ["saved-post-state"],
-    queryFn: () => fetchMySaved({ page: 1, limit: 100 }),
-  });
-
   const posts = feedQuery.data?.pages.flatMap((page) => page.items) ?? [];
-  const savedIds = new Set(savedQuery.data?.posts.map((post) => post.id) ?? []);
 
   return (
     <div className="mx-auto w-full max-w-[560px] px-4 pb-28 pt-8 sm:px-6">
@@ -42,7 +36,8 @@ export default function FeedPage() {
       ) : (
         <div className="space-y-8">
           {posts.map((post) => (
-            <PostCard key={post.id} post={post} forceSaved={savedIds.has(post.id)} />
+            // ✅ Tidak perlu forceSaved — PostCard baca post.savedByMe & post.likedByMe langsung
+            <PostCard key={post.id} post={post} />
           ))}
 
           {feedQuery.hasNextPage ? (

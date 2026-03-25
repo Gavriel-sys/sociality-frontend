@@ -1,3 +1,5 @@
+// src/lib/local-avatar.ts
+
 const DB_NAME = "sociality-local-db";
 const STORE_NAME = "kv";
 const AVATAR_KEY = "avatar_override";

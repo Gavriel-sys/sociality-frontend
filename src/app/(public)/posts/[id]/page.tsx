@@ -1,8 +1,24 @@
 ﻿"use client";
 
 import Link from "next/link";
-import { ArrowLeft, Bookmark, Heart, MessageCircle, MoreHorizontal, Send, Smile, Trash2, X } from "lucide-react";
-import { InfiniteData, useInfiniteQuery, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+  ArrowLeft,
+  Bookmark,
+  Heart,
+  MessageCircle,
+  MoreHorizontal,
+  Send,
+  Smile,
+  Trash2,
+  X,
+} from "lucide-react";
+import {
+  InfiniteData,
+  useInfiniteQuery,
+  useMutation,
+  useQuery,
+  useQueryClient,
+} from "@tanstack/react-query";
 import { useParams, useRouter } from "next/navigation";
 import { useState } from "react";
 import {
@@ -54,104 +70,83 @@ export default function PostDetailPage() {
     queryFn: () => fetchPost(postId),
   });
 
-  const likedStateQuery = useQuery({
-    queryKey: ["detail-liked-state", postId],
-    queryFn: () => fetchMyLikes({ page: 1, limit: 100 }),
-    enabled: session.mounted && isLoggedIn,
-  });
-
-  const savedStateQuery = useQuery({
-    queryKey: ["detail-saved-state", postId],
-    queryFn: () => fetchMySaved({ page: 1, limit: 100 }),
-    enabled: session.mounted && isLoggedIn,
-  });
-
   const commentsQuery = useInfiniteQuery({
     queryKey: ["post-comments", postId],
-    queryFn: ({ pageParam }) => fetchPostComments(postId, { page: pageParam, limit: 10 }),
+    queryFn: ({ pageParam }) =>
+      fetchPostComments(postId, { page: pageParam, limit: 10 }),
     initialPageParam: 1,
     getNextPageParam: (lastPage) => getNextPageParam(lastPage.pagination),
   });
 
   const likesQuery = useInfiniteQuery({
     queryKey: ["post-likes", postId],
-    queryFn: ({ pageParam }) => fetchPostLikes(Number(postId), { page: pageParam, limit: 20 }),
+    queryFn: ({ pageParam }) =>
+      fetchPostLikes(Number(postId), { page: pageParam, limit: 20 }),
     initialPageParam: 1,
     getNextPageParam: (lastPage) => getNextPageParam(lastPage.pagination),
     enabled: likesOpen,
   });
 
-  const comments = commentsQuery.data?.pages.flatMap((page) => page.comments) ?? [];
+  const comments =
+    commentsQuery.data?.pages.flatMap((page) => page.comments) ?? [];
   const likedUsers = likesQuery.data?.pages.flatMap((page) => page.users) ?? [];
 
-  const likedByQuery = likedStateQuery.data?.posts.some((post) => post.id === Number(postId)) ?? false;
-  const savedByQuery = savedStateQuery.data?.posts.some((post) => post.id === Number(postId)) ?? false;
-  const liked = pendingState?.liked ?? likedByQuery ?? postQuery.data?.likedByMe ?? false;
-  const saved = pendingState?.saved ?? savedByQuery ?? postQuery.data?.savedByMe ?? false;
+  const liked = pendingState?.liked ?? postQuery.data?.likedByMe ?? false;
+const saved = pendingState?.saved ?? Boolean(postQuery.data?.saved
   const likeCount = pendingState?.likeCount ?? postQuery.data?.likeCount ?? 0;
 
   const likeMutation = useMutation({
-    mutationFn: async () => {
+    mutationFn: async (isCurrentlyLiked: boolean) => {
+      console.log(
+        "🔘 Tombol ditekan! Status variabel 'liked' saat ini:",
+        liked,
+      );
       if (!postQuery.data) {
         return null;
       }
 
-      if (liked) {
+      if (isCurrentlyLiked) {
         return unlikePost(postQuery.data.id);
       }
 
       return likePost(postQuery.data.id);
     },
-    onMutate: () => {
-      const nextLiked = !liked;
+    onMutate: (isCurrentlyLiked) => {
+      const nextLiked = !isCurrentlyLiked;
       setPendingState((current) => ({
         ...current,
         liked: nextLiked,
         likeCount: likeCount + (nextLiked ? 1 : -1),
       }));
     },
-    onError: () => {
+    onSettled: () => {
       setPendingState(null);
     },
     onSuccess: (data) => {
-      if (!data) return;
-      setPendingState((current) => ({
-        ...current,
-        liked: data.liked,
-        likeCount: data.likeCount,
-      }));
-      queryClient.invalidateQueries({});
+      queryClient.invalidateQueries({ queryKey: ["post", postId] });
+      queryClient.invalidateQueries({ queryKey: ["feed"] });
     },
   });
 
   const saveMutation = useMutation({
     mutationFn: async () => {
-      if (!postQuery.data) {
-        return null;
-      }
-
-      if (saved) {
-        return unsavePost(postQuery.data.id);
-      }
-
-      return savePost(postQuery.data.id);
+      console.log(
+        `💾 Detail save toggle post ${postId}: currently ${saved ? "saved" : "unsaved"}`,
+      );
+      if (!postQuery.data) return null;
+      return saved
+        ? unsavePost(postQuery.data.id)
+        : savePost(postQuery.data.id);
     },
     onMutate: () => {
-      setPendingState((current) => ({
-        ...current,
-        saved: !saved,
-      }));
+      setPendingState((current) => ({ ...current, saved: !saved }));
     },
-    onError: () => {
-      setPendingState(null);
-    },
+    onError: () => setPendingState(null),
+    onSettled: () => setPendingState(null),
     onSuccess: (data) => {
-      if (!data) return;
-      setPendingState((current) => ({
-        ...current,
-        saved: data.saved,
-      }));
-      queryClient.invalidateQueries({});
+      console.log("✅ Save detail response:", data);
+      queryClient.invalidateQueries({ queryKey: ["post", postId] });
+      queryClient.invalidateQueries({ queryKey: ["me-saved"] });
     },
   });
 
@@ -165,21 +160,30 @@ export default function PostDetailPage() {
   }
 
   const createCommentMutation = useMutation({
-    mutationFn: async () => {
+    mutationFn: async (text: string) => {
       if (!getToken()) {
         router.push(buildLoginHref(`/posts/${postId}`));
         return null;
       }
 
-      if (!commentDraft.trim()) {
+      // Client-side trim & validate before API call
+      const trimmedText = text.trim();
+      if (!trimmedText) {
         throw new Error("Komentar wajib diisi");
       }
 
-      return createComment(postId, commentDraft.trim());
+      console.log("📤 Creating comment:", {
+        postId,
+        textLength: trimmedText.length,
+      });
+      return createComment(postId, trimmedText);
     },
-    onMutate: async () => {
-      const previous = queryClient.getQueryData<InfiniteData<CommentListData>>(["post-comments", postId]);
-      const optimisticText = commentDraft.trim();
+    onMutate: async (text: string) => {
+      const previous = queryClient.getQueryData<InfiniteData<CommentListData>>([
+        "post-comments",
+        postId,
+      ]);
+      const optimisticText = text.trim();
       const optimisticComment: CommentItem = {
         id: -Date.now(),
         text: optimisticText,
@@ -197,41 +201,44 @@ export default function PostDetailPage() {
       setCommentDraft("");
       setCommentError("");
 
-      queryClient.setQueryData<InfiniteData<CommentListData>>(["post-comments", postId], (old) => {
-        if (!old) {
+      queryClient.setQueryData<InfiniteData<CommentListData>>(
+        ["post-comments", postId],
+        (old) => {
+          if (!old) {
+            return {
+              pageParams: [1],
+              pages: [
+                {
+                  comments: [optimisticComment],
+                  pagination: {
+                    page: 1,
+                    limit: 10,
+                    total: 1,
+                    totalPages: 1,
+                  },
+                },
+              ],
+            };
+          }
+
+          const [firstPage, ...restPages] = old.pages;
+
           return {
-            pageParams: [1],
+            ...old,
             pages: [
               {
-                comments: [optimisticComment],
+                ...firstPage,
+                comments: [optimisticComment, ...firstPage.comments],
                 pagination: {
-                  page: 1,
-                  limit: 10,
-                  total: 1,
-                  totalPages: 1,
+                  ...firstPage.pagination,
+                  total: firstPage.pagination.total + 1,
                 },
               },
+              ...restPages,
             ],
           };
-        }
-
-        const [firstPage, ...restPages] = old.pages;
-
-        return {
-          ...old,
-          pages: [
-            {
-              ...firstPage,
-              comments: [optimisticComment, ...firstPage.comments],
-              pagination: {
-                ...firstPage.pagination,
-                total: firstPage.pagination.total + 1,
-              },
-            },
-            ...restPages,
-          ],
-        };
-      });
+        },
+      );
 
       return {
         previous,
@@ -244,7 +251,28 @@ export default function PostDetailPage() {
       }
 
       setCommentDraft(context?.optimisticText || "");
-      setCommentError(error instanceof Error ? error.message : "Gagal mengirim komentar");
+
+      let errorMsg = "Gagal mengirim komentar";
+      if (error instanceof Error) {
+        errorMsg = error.message;
+      } else if (
+        error &&
+        typeof error === "object" &&
+        "response" in (error as object)
+      ) {
+        const resp = (error as any).response as
+          | { status?: number; data?: { data: Array<{ msg: string }> } }
+          | undefined;
+        if (resp?.status === 400 && resp?.data?.data) {
+          const validationErrors = resp.data.data;
+          if (Array.isArray(validationErrors)) {
+            errorMsg = validationErrors.map((v) => (v as any).msg).join(", ");
+          }
+        }
+      }
+
+      console.error("❌ Comment error:", error);
+      setCommentError(errorMsg);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({});
@@ -254,23 +282,29 @@ export default function PostDetailPage() {
   const deleteCommentMutation = useMutation({
     mutationFn: async (commentId: number) => deleteComment(commentId),
     onMutate: async (commentId: number) => {
-      const previous = queryClient.getQueryData<InfiniteData<CommentListData>>(["post-comments", postId]);
+      const previous = queryClient.getQueryData<InfiniteData<CommentListData>>([
+        "post-comments",
+        postId,
+      ]);
 
-      queryClient.setQueryData<InfiniteData<CommentListData>>(["post-comments", postId], (old) => {
-        if (!old) return old;
+      queryClient.setQueryData<InfiniteData<CommentListData>>(
+        ["post-comments", postId],
+        (old) => {
+          if (!old) return old;
 
-        return {
-          ...old,
-          pages: old.pages.map((page) => ({
-            ...page,
-            comments: page.comments.filter((item) => item.id !== commentId),
-            pagination: {
-              ...page.pagination,
-              total: Math.max(page.pagination.total - 1, 0),
-            },
-          })),
-        };
-      });
+          return {
+            ...old,
+            pages: old.pages.map((page) => ({
+              ...page,
+              comments: page.comments.filter((item) => item.id !== commentId),
+              pagination: {
+                ...page.pagination,
+                total: Math.max(page.pagination.total - 1, 0),
+              },
+            })),
+          };
+        },
+      );
 
       return { previous };
     },
@@ -311,6 +345,16 @@ export default function PostDetailPage() {
 
   const post = postQuery.data;
   const canDeletePost = post.author.username === session.username;
+  console.log(
+    "Cek Post ID:",
+    post.id,
+    " | likedByMe:",
+    post.likedByMe,
+    " | savedByMe:",
+    post.savedByMe,
+    " | Tipe savedByMe:",
+    typeof post.savedByMe,
+  );
 
   return (
     <>
@@ -353,8 +397,12 @@ export default function PostDetailPage() {
                   />
                 </Link>
                 <div className="min-w-0">
-                  <p className="truncate text-sm font-semibold text-white">{post.author.name}</p>
-                  <p className="mt-1 text-xs text-white/45">{formatRelativeTime(post.createdAt)}</p>
+                  <p className="truncate text-sm font-semibold text-white">
+                    {post.author.name}
+                  </p>
+                  <p className="mt-1 text-xs text-white/45">
+                    {formatRelativeTime(post.createdAt)}
+                  </p>
                 </div>
               </div>
 
@@ -385,7 +433,9 @@ export default function PostDetailPage() {
             </div>
 
             <div className="border-b border-white/10 px-5 py-5 sm:px-6">
-              <p className="text-sm leading-8 text-white/82">{post.caption || "No caption yet."}</p>
+              <p className="text-sm leading-8 text-white/82">
+                {post.caption || "No caption yet."}
+              </p>
             </div>
 
             <div className="flex-1 overflow-y-auto px-5 py-5 sm:px-6">
@@ -393,7 +443,9 @@ export default function PostDetailPage() {
                 <div>
                   <h2 className="text-lg font-semibold text-white">Comments</h2>
                   <p className="mt-1 text-xs text-white/45">
-                    {commentsQuery.isPending ? "Memuat komentar..." : `${comments.length} komentar`}
+                    {commentsQuery.isPending
+                      ? "Memuat komentar..."
+                      : `${comments.length} komentar`}
                   </p>
                 </div>
                 {commentsQuery.hasNextPage ? (
@@ -403,7 +455,9 @@ export default function PostDetailPage() {
                     disabled={commentsQuery.isFetchingNextPage}
                     className="text-xs font-medium text-violet-400 transition hover:text-violet-300 disabled:opacity-50"
                   >
-                    {commentsQuery.isFetchingNextPage ? "Memuat..." : "Load more"}
+                    {commentsQuery.isFetchingNextPage
+                      ? "Memuat..."
+                      : "Load more"}
                   </button>
                 ) : null}
               </div>
@@ -413,7 +467,10 @@ export default function PostDetailPage() {
               ) : (
                 <div className="space-y-4">
                   {comments.map((item) => (
-                    <div key={item.id} className="border-b border-white/8 pb-4 last:border-b-0 last:pb-0">
+                    <div
+                      key={item.id}
+                      className="border-b border-white/8 pb-4 last:border-b-0 last:pb-0"
+                    >
                       <div className="flex items-start justify-between gap-3">
                         <div className="flex min-w-0 gap-3">
                           <img
@@ -422,16 +479,24 @@ export default function PostDetailPage() {
                             className="mt-0.5 h-9 w-9 rounded-full object-cover"
                           />
                           <div className="min-w-0">
-                            <p className="truncate text-sm font-semibold text-white">{item.author.name}</p>
-                            <p className="mt-1 text-xs text-white/45">{formatRelativeTime(item.createdAt)}</p>
-                            <p className="mt-3 text-sm leading-7 text-white/78">{item.text}</p>
+                            <p className="truncate text-sm font-semibold text-white">
+                              {item.author.name}
+                            </p>
+                            <p className="mt-1 text-xs text-white/45">
+                              {formatRelativeTime(item.createdAt)}
+                            </p>
+                            <p className="mt-3 text-sm leading-7 text-white/78">
+                              {item.text}
+                            </p>
                           </div>
                         </div>
 
                         {item.isMine ? (
                           <button
                             type="button"
-                            onClick={() => deleteCommentMutation.mutate(item.id)}
+                            onClick={() =>
+                              deleteCommentMutation.mutate(item.id)
+                            }
                             disabled={deleteCommentMutation.isPending}
                             className="text-xs font-medium text-white/55 transition hover:text-white disabled:opacity-50"
                           >
@@ -450,11 +515,15 @@ export default function PostDetailPage() {
                 <div className="flex items-center gap-5 text-sm">
                   <button
                     type="button"
-                    onClick={() => handleProtectedAction(() => likeMutation.mutate())}
+                    onClick={() =>
+                      handleProtectedAction(() => likeMutation.mutate(liked))
+                    }
                     disabled={likeMutation.isPending}
                     className="inline-flex items-center gap-2 transition hover:text-[#ff4d93] disabled:opacity-50"
                   >
-                    <Heart className={`h-5 w-5 ${liked ? "fill-[#ff4d93] text-[#ff4d93]" : "text-[#ff4d93]"}`} />
+                    <Heart
+                      className={`h-5 w-5 ${liked ? "fill-[#ff4d93] text-[#ff4d93]" : "text-[#ff4d93]"}`}
+                    />
                     <span>{likeCount}</span>
                   </button>
 
@@ -479,12 +548,16 @@ export default function PostDetailPage() {
 
                 <button
                   type="button"
-                  onClick={() => handleProtectedAction(() => saveMutation.mutate())}
+                  onClick={() =>
+                    handleProtectedAction(() => saveMutation.mutate(saved))
+                  }
                   disabled={saveMutation.isPending}
                   className="transition hover:text-white/80 disabled:opacity-50"
                   aria-label={saved ? "Unsave post" : "Save post"}
                 >
-                  <Bookmark className={`h-5 w-5 ${saved ? "fill-current" : ""}`} />
+                  <Bookmark
+                    className={`h-5 w-5 ${saved ? "fill-current" : ""}`}
+                  />
                 </button>
               </div>
 
@@ -500,8 +573,10 @@ export default function PostDetailPage() {
                     />
                     <button
                       type="button"
-                      onClick={() => createCommentMutation.mutate()}
-                      disabled={createCommentMutation.isPending || !commentDraft.trim()}
+                      onClick={() => createCommentMutation.mutate(commentDraft)}
+                      disabled={
+                        createCommentMutation.isPending || !commentDraft.trim()
+                      }
                       className="shrink-0 text-sm font-semibold text-white/45 transition hover:text-white disabled:cursor-not-allowed disabled:opacity-40"
                     >
                       {createCommentMutation.isPending ? "Posting..." : "Post"}
@@ -509,8 +584,13 @@ export default function PostDetailPage() {
                   </>
                 ) : (
                   <div className="flex w-full items-center justify-between gap-3">
-                    <p className="text-sm text-white/50">Login untuk menulis komentar</p>
-                    <Link href={buildLoginHref(`/posts/${postId}`)} className="text-sm font-semibold text-violet-400">
+                    <p className="text-sm text-white/50">
+                      Login untuk menulis komentar
+                    </p>
+                    <Link
+                      href={buildLoginHref(`/posts/${postId}`)}
+                      className="text-sm font-semibold text-violet-400"
+                    >
                       Login
                     </Link>
                   </div>
@@ -538,7 +618,11 @@ export default function PostDetailPage() {
         </div>
 
         <div className="mx-auto flex max-w-[1220px] justify-start pt-4">
-          <Button asChild variant="outline" className="h-11 rounded-full border-white/10 bg-[#050b16] px-5 text-white">
+          <Button
+            asChild
+            variant="outline"
+            className="h-11 rounded-full border-white/10 bg-[#050b16] px-5 text-white"
+          >
             <Link href={session.isLoggedIn ? "/feed" : "/"}>
               <ArrowLeft className="h-4 w-4" />
               Back
@@ -553,9 +637,16 @@ export default function PostDetailPage() {
             <div className="flex items-center justify-between border-b border-white/10 px-6 py-5">
               <div>
                 <p className="text-lg font-semibold text-white">Liked by</p>
-                <p className="text-sm text-white/45">Lihat siapa saja yang sudah memberi like pada post ini.</p>
+                <p className="text-sm text-white/45">
+                  Lihat siapa saja yang sudah memberi like pada post ini.
+                </p>
               </div>
-              <Button type="button" variant="ghost" onClick={() => setLikesOpen(false)} className="rounded-full text-white/60 hover:bg-white/5 hover:text-white">
+              <Button
+                type="button"
+                variant="ghost"
+                onClick={() => setLikesOpen(false)}
+                className="rounded-full text-white/60 hover:bg-white/5 hover:text-white"
+              >
                 Close
               </Button>
             </div>
@@ -564,7 +655,10 @@ export default function PostDetailPage() {
               {!likedUsers.length && likesQuery.isPending ? (
                 <p className="text-center text-white/65">Memuat likes...</p>
               ) : !likedUsers.length ? (
-                <EmptyState title="Belum ada likes" description="Saat user mulai memberi like, daftarnya akan muncul di sini." />
+                <EmptyState
+                  title="Belum ada likes"
+                  description="Saat user mulai memberi like, daftarnya akan muncul di sini."
+                />
               ) : (
                 <div className="space-y-4">
                   {likedUsers.map((user: UserSummary) => (
@@ -576,7 +670,13 @@ export default function PostDetailPage() {
 
             {likesQuery.hasNextPage ? (
               <div className="border-t border-white/10 px-6 py-4">
-                <Button type="button" variant="outline" onClick={() => likesQuery.fetchNextPage()} disabled={likesQuery.isFetchingNextPage} className="h-11 w-full rounded-full">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => likesQuery.fetchNextPage()}
+                  disabled={likesQuery.isFetchingNextPage}
+                  className="h-11 w-full rounded-full"
+                >
                   {likesQuery.isFetchingNextPage ? "Memuat..." : "Load more"}
                 </Button>
               </div>
@@ -587,5 +687,3 @@ export default function PostDetailPage() {
     </>
   );
 }
-
-

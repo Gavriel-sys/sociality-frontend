@@ -1,4 +1,6 @@
-﻿const TOKEN_KEY = "token";
+﻿// session.ts
+
+const TOKEN_KEY = "token";
 const DISPLAY_NAME_KEY = "me_display_name";
 const USERNAME_KEY = "me_username";
 const AVATAR_KEY = "me_avatar";
@@ -56,7 +58,10 @@ export function persistUserSnapshot(user: SessionUser) {
   }
 
   if (user.name || user.username) {
-    localStorage.setItem(DISPLAY_NAME_KEY, user.name || user.username || "User");
+    localStorage.setItem(
+      DISPLAY_NAME_KEY,
+      user.name || user.username || "User",
+    );
   }
 
   if (user.avatarUrl) {
@@ -68,7 +73,11 @@ export function persistUserSnapshot(user: SessionUser) {
 
 export function getStoredDisplayName() {
   if (!hasWindow()) return "John Doe";
-  return localStorage.getItem(DISPLAY_NAME_KEY) || localStorage.getItem(USERNAME_KEY) || "John Doe";
+  return (
+    localStorage.getItem(DISPLAY_NAME_KEY) ||
+    localStorage.getItem(USERNAME_KEY) ||
+    "John Doe"
+  );
 }
 
 export function getStoredAvatar() {
