@@ -120,12 +120,6 @@ export function Navbar() {
           <Brand titleClassName="text-2xl leading-none sm:text-[1.9rem]" />
         </Link>
 
-        <img
-          src={getAvatar(session.avatarUrl)}
-          alt={session.displayName || "Profile"}
-          className="h-10 w-10 rounded-full object-cover"
-        />
-
         {showSearch ? (
           <div
             ref={searchRef}
