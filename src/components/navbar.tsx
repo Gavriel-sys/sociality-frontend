@@ -13,6 +13,11 @@ import { Brand } from "@/components/brand-mark";
 
 const DEFAULT_AVATAR = "/avatars/default-avatar.png";
 
+const getAvatar = (url?: string | null) => {
+  if (!url || url === "null" || url.trim() === "") return DEFAULT_AVATAR;
+  return url;
+};
+
 export function Navbar() {
   const pathname = usePathname();
   const router = useRouter();
@@ -91,7 +96,9 @@ export function Navbar() {
 
     const query = searchValue.trim();
     setSearchOpen(false);
-    router.push(query ? `/users/search?q=${encodeURIComponent(query)}` : "/users/search");
+    router.push(
+      query ? `/users/search?q=${encodeURIComponent(query)}` : "/users/search",
+    );
   }
 
   function handleLogout() {
@@ -113,8 +120,17 @@ export function Navbar() {
           <Brand titleClassName="text-2xl leading-none sm:text-[1.9rem]" />
         </Link>
 
+        <img
+          src={getAvatar(session.avatarUrl)}
+          alt={session.displayName || "Profile"}
+          className="h-10 w-10 rounded-full object-cover"
+        />
+
         {showSearch ? (
-          <div ref={searchRef} className="relative order-3 w-full md:order-none md:mx-auto md:max-w-[390px] md:flex-1 md:px-4">
+          <div
+            ref={searchRef}
+            className="relative order-3 w-full md:order-none md:mx-auto md:max-w-[390px] md:flex-1 md:px-4"
+          >
             <form onSubmit={handleSearchSubmit} className="relative">
               <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-white/38" />
               <input
@@ -126,14 +142,23 @@ export function Navbar() {
               />
             </form>
 
-            {session.mounted && isLoggedIn && searchOpen && searchValue.trim() ? (
+            {session.mounted &&
+            isLoggedIn &&
+            searchOpen &&
+            searchValue.trim() ? (
               <div className="absolute z-50 mt-3 w-full overflow-hidden rounded-[18px] border border-white/10 bg-[#040a16]/98 shadow-[0_20px_50px_rgba(0,0,0,0.45)] backdrop-blur-xl">
                 {searchQuery.isPending ? (
-                  <div className="px-5 py-8 text-center text-sm text-white/55">Searching...</div>
+                  <div className="px-5 py-8 text-center text-sm text-white/55">
+                    Searching...
+                  </div>
                 ) : !searchQuery.data?.users.length ? (
                   <div className="px-5 py-8 text-center">
-                    <p className="text-sm font-semibold text-white">No results found</p>
-                    <p className="mt-2 text-xs text-white/45">Change your keyword</p>
+                    <p className="text-sm font-semibold text-white">
+                      No results found
+                    </p>
+                    <p className="mt-2 text-xs text-white/45">
+                      Change your keyword
+                    </p>
                   </div>
                 ) : (
                   <div className="py-2">
@@ -150,8 +175,12 @@ export function Navbar() {
                           className="h-10 w-10 rounded-full object-cover"
                         />
                         <div className="min-w-0">
-                          <p className="truncate text-sm font-semibold text-white">{user.name}</p>
-                          <p className="truncate text-xs text-white/45">@{user.username}</p>
+                          <p className="truncate text-sm font-semibold text-white">
+                            {user.name}
+                          </p>
+                          <p className="truncate text-xs text-white/45">
+                            @{user.username}
+                          </p>
                         </div>
                       </button>
                     ))}
@@ -164,8 +193,15 @@ export function Navbar() {
 
         {isLoggedIn ? (
           <div className="ml-auto flex items-center gap-2 sm:gap-3">
-            <Link href="/me" className="flex items-center gap-3 rounded-full px-1 py-1 transition hover:bg-white/[0.03]">
-              <img src={avatarUrl} alt="avatar" className="h-11 w-11 rounded-full object-cover" />
+            <Link
+              href="/me"
+              className="flex items-center gap-3 rounded-full px-1 py-1 transition hover:bg-white/[0.03]"
+            >
+              <img
+                src={avatarUrl}
+                alt="avatar"
+                className="h-11 w-11 rounded-full object-cover"
+              />
               <span className="hidden max-w-28 truncate text-sm font-semibold text-white sm:block">
                 {session.displayName}
               </span>

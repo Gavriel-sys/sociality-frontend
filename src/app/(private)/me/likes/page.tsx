@@ -2,6 +2,7 @@
 
 import { useInfiniteQuery } from "@tanstack/react-query";
 import { fetchMyLikes } from "@/lib/social-api";
+import { ME_LIKES_QUERY_KEY } from "@/lib/post-cache";
 import { EmptyState } from "@/components/empty-state";
 import { PageShell } from "@/components/page-shell";
 import { PostCard } from "@/components/post-card";
@@ -10,7 +11,7 @@ import { getNextPageParam } from "@/lib/utils";
 
 export default function MyLikesPage() {
   const likesQuery = useInfiniteQuery({
-    queryKey: ["my-likes"],
+    queryKey: ME_LIKES_QUERY_KEY,
     queryFn: ({ pageParam }) => fetchMyLikes({ page: pageParam, limit: 10 }),
     initialPageParam: 1,
     getNextPageParam: (lastPage) => getNextPageParam(lastPage.pagination),
@@ -33,7 +34,7 @@ export default function MyLikesPage() {
       ) : (
         <div className="space-y-6">
           {posts.map((post) => (
-            <PostCard key={post.id} post={post} forceLiked />
+            <PostCard key={post.id} post={post} />
           ))}
 
           {likesQuery.hasNextPage ? (

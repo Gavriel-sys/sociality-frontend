@@ -2,6 +2,7 @@
 
 import { useInfiniteQuery } from "@tanstack/react-query";
 import { fetchFeed } from "@/lib/social-api";
+import { FEED_QUERY_KEY } from "@/lib/post-cache";
 import { EmptyState } from "@/components/empty-state";
 import { PostCard } from "@/components/post-card";
 import { Button } from "@/components/ui/button";
@@ -9,7 +10,7 @@ import { getNextPageParam } from "@/lib/utils";
 
 export default function FeedPage() {
   const feedQuery = useInfiniteQuery({
-    queryKey: ["feed"],
+    queryKey: FEED_QUERY_KEY,
     queryFn: ({ pageParam }) => fetchFeed({ page: pageParam, limit: 10 }),
     initialPageParam: 1,
     getNextPageParam: (lastPage) => getNextPageParam(lastPage.pagination),
@@ -36,7 +37,6 @@ export default function FeedPage() {
       ) : (
         <div className="space-y-8">
           {posts.map((post) => (
-            // ✅ Tidak perlu forceSaved — PostCard baca post.savedByMe & post.likedByMe langsung
             <PostCard key={post.id} post={post} />
           ))}
 

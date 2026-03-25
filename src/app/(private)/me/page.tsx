@@ -7,6 +7,7 @@ import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
 import { fetchMe, fetchMySaved, fetchUserPosts } from "@/lib/social-api";
 import { persistUserSnapshot } from "@/lib/session";
 import { getLocalAvatar } from "@/lib/local-avatar";
+import { ME_SAVED_QUERY_KEY } from "@/lib/post-cache";
 import { EmptyState } from "@/components/empty-state";
 import { Button } from "@/components/ui/button";
 import { formatCount, getNextPageParam } from "@/lib/utils";
@@ -39,7 +40,7 @@ export default function MePage() {
 
   // ✅ useInfiniteQuery untuk saved dengan load more
   const savedQuery = useInfiniteQuery({
-    queryKey: ["me-saved"],
+    queryKey: ME_SAVED_QUERY_KEY,
     queryFn: ({ pageParam }) => fetchMySaved({ page: pageParam, limit: 12 }),
     initialPageParam: 1,
     getNextPageParam: (lastPage) => getNextPageParam(lastPage.pagination),

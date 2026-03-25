@@ -26,6 +26,9 @@ export type UserProfile = {
   bio?: string | null;
   avatarUrl?: string | null;
   createdAt?: string;
+  postCount?: number;
+  followersCount?: number;
+  followingsCount?: number;
 };
 
 export type UserStats = {

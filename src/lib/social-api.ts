@@ -1,6 +1,14 @@
 // social-api.ts
 
 import { api, authHeaders, unwrapResponse } from "@/lib/api";
+import {
+  normalizeFeedData,
+  normalizePostItem,
+  normalizePostListData,
+  normalizePublicProfile,
+  normalizeUserProfile,
+  normalizeUserSummary,
+} from "@/lib/social-normalizers";
 import type {
   AuthData,
   CommentItem,
@@ -47,7 +55,12 @@ export async function register(payload: {
 export async function fetchMe() {
   const res = await api.get("/me");
 
-  return unwrapResponse<MeData>(res);
+  const data = unwrapResponse<MeData>(res);
+
+  return {
+    ...data,
+    profile: normalizeUserProfile(data.profile),
+  };
 }
 
 export async function updateMe(payload: {
@@ -59,7 +72,12 @@ export async function updateMe(payload: {
     headers: authHeaders(),
   });
 
-  return unwrapResponse<MeData>(res);
+  const data = unwrapResponse<MeData>(res);
+
+  return {
+    ...data,
+    profile: normalizeUserProfile(data.profile),
+  };
 }
 
 export async function fetchFeed(options?: PagingOptions) {
@@ -68,12 +86,12 @@ export async function fetchFeed(options?: PagingOptions) {
     params: withPaging(options),
   });
 
-  return unwrapResponse<FeedData>(res);
+  return normalizeFeedData(unwrapResponse<FeedData>(res));
 }
 
 export async function fetchPost(postId: string) {
   const res = await api.get(`/posts/${postId}`);
-  return unwrapResponse<PostItem>(res);
+  return normalizePostItem(unwrapResponse<PostItem>(res));
 }
 
 export async function createPost(payload: FormData) {
@@ -81,7 +99,7 @@ export async function createPost(payload: FormData) {
     headers: authHeaders(),
   });
 
-  return unwrapResponse<PostItem>(res);
+  return normalizePostItem(unwrapResponse<PostItem>(res));
 }
 
 export async function deletePost(postId: string) {
@@ -150,11 +168,15 @@ export async function unlikePost(postId: number) {
 }
 
 export async function savePost(postId: number | string) {
-  console.log("📁 savePost called with:", postId);
+  console.log("savePost called with:", postId);
   const numericId = Number(postId);
-  const res = await api.post(`/posts/${numericId}/save`, undefined, {
-    headers: authHeaders(),
-  });
+  const res = await api.post(
+    `/posts/${numericId}/save`,
+    {},
+    {
+      headers: authHeaders(),
+    },
+  );
 
   return unwrapResponse<{ saved: boolean }>(res);
 }
@@ -174,7 +196,12 @@ export async function fetchPostLikes(postId: number, options?: PagingOptions) {
     params: withPaging(options),
   });
 
-  return unwrapResponse<PostLikesData>(res);
+  const data = unwrapResponse<PostLikesData>(res);
+
+  return {
+    ...data,
+    users: data.users.map((user) => normalizeUserSummary(user)),
+  };
 }
 
 export async function fetchPublicProfile(username: string) {
@@ -182,7 +209,7 @@ export async function fetchPublicProfile(username: string) {
     headers: authHeaders(),
   });
 
-  return unwrapResponse<PublicProfileData>(res);
+  return normalizePublicProfile(unwrapResponse<PublicProfileData>(res));
 }
 
 export async function fetchUserPosts(
@@ -194,7 +221,7 @@ export async function fetchUserPosts(
     params: withPaging(options),
   });
 
-  return unwrapResponse<PostListData>(res);
+  return normalizePostListData(unwrapResponse<PostListData>(res));
 }
 
 export async function fetchUserLikes(
@@ -206,7 +233,15 @@ export async function fetchUserLikes(
     params: withPaging(options),
   });
 
-  return unwrapResponse<PostListData>(res);
+  const data = normalizePostListData(unwrapResponse<PostListData>(res));
+
+  return {
+    ...data,
+    posts: data.posts.map((post) => ({
+      ...post,
+      likedByMe: post.likedByMe ?? true,
+    })),
+  };
 }
 
 export async function searchUsers(query: string, options?: PagingOptions) {
@@ -218,7 +253,12 @@ export async function searchUsers(query: string, options?: PagingOptions) {
     },
   });
 
-  return unwrapResponse<SearchUsersData>(res);
+  const data = unwrapResponse<SearchUsersData>(res);
+
+  return {
+    ...data,
+    users: data.users.map((user) => normalizeUserSummary(user)),
+  };
 }
 
 export async function fetchMyLikes(options?: PagingOptions) {
@@ -227,7 +267,15 @@ export async function fetchMyLikes(options?: PagingOptions) {
     params: withPaging(options),
   });
 
-  return unwrapResponse<PostListData>(res);
+  const data = normalizePostListData(unwrapResponse<PostListData>(res));
+
+  return {
+    ...data,
+    posts: data.posts.map((post) => ({
+      ...post,
+      likedByMe: post.likedByMe ?? true,
+    })),
+  };
 }
 
 export async function fetchMySaved(options?: PagingOptions) {
@@ -236,7 +284,15 @@ export async function fetchMySaved(options?: PagingOptions) {
     params: withPaging(options),
   });
 
-  return unwrapResponse<PostListData>(res);
+  const data = normalizePostListData(unwrapResponse<PostListData>(res));
+
+  return {
+    ...data,
+    posts: data.posts.map((post) => ({
+      ...post,
+      savedByMe: post.savedByMe ?? true,
+    })),
+  };
 }
 
 export async function fetchMyFollowers(options?: PagingOptions) {
@@ -245,7 +301,12 @@ export async function fetchMyFollowers(options?: PagingOptions) {
     params: withPaging(options),
   });
 
-  return unwrapResponse<UserListData>(res);
+  const data = unwrapResponse<UserListData>(res);
+
+  return {
+    ...data,
+    users: data.users.map((user) => normalizeUserSummary(user)),
+  };
 }
 
 export async function fetchMyFollowing(options?: PagingOptions) {
@@ -254,7 +315,12 @@ export async function fetchMyFollowing(options?: PagingOptions) {
     params: withPaging(options),
   });
 
-  return unwrapResponse<UserListData>(res);
+  const data = unwrapResponse<UserListData>(res);
+
+  return {
+    ...data,
+    users: data.users.map((user) => normalizeUserSummary(user)),
+  };
 }
 
 export async function fetchUserFollowers(
@@ -266,7 +332,12 @@ export async function fetchUserFollowers(
     params: withPaging(options),
   });
 
-  return unwrapResponse<UserListData>(res);
+  const data = unwrapResponse<UserListData>(res);
+
+  return {
+    ...data,
+    users: data.users.map((user) => normalizeUserSummary(user)),
+  };
 }
 
 export async function fetchUserFollowing(
@@ -278,7 +349,12 @@ export async function fetchUserFollowing(
     params: withPaging(options),
   });
 
-  return unwrapResponse<UserListData>(res);
+  const data = unwrapResponse<UserListData>(res);
+
+  return {
+    ...data,
+    users: data.users.map((user) => normalizeUserSummary(user)),
+  };
 }
 
 export async function followUser(username: string) {

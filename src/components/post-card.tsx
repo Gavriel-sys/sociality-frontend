@@ -4,13 +4,24 @@ import Link from "next/link";
 import { Bookmark, Heart, MessageCircle, Send } from "lucide-react";
 import { usePathname, useRouter } from "next/navigation";
 import { useState } from "react";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import {
+  InfiniteData,
+  useMutation,
+  useQueryClient,
+} from "@tanstack/react-query";
 import { likePost, savePost, unlikePost, unsavePost } from "@/lib/social-api";
+import {
+  addPostToSavedCache,
+  FEED_QUERY_KEY,
+  ME_SAVED_QUERY_KEY,
+  postQueryKey,
+  removePostFromSavedCache,
+  updatePostCaches,
+} from "@/lib/post-cache";
 import { buildLoginHref, getToken } from "@/lib/session";
-import type { PostItem } from "@/types/social";
+import { DEFAULT_AVATAR, getAvatarSrc } from "@/lib/media";
 import { formatRelativeTime } from "@/lib/utils";
-
-const DEFAULT_AVATAR = "/avatars/default-avatar.png";
+import type { FeedData, PostItem, PostListData } from "@/types/social";
 
 type Props = {
   post: PostItem;
@@ -21,7 +32,6 @@ type Props = {
 
 type PendingState = {
   liked?: boolean;
-  saved?: boolean;
   likeCount?: number;
 };
 
@@ -38,19 +48,10 @@ export function PostCard({
   const [expanded, setExpanded] = useState(false);
   const [pendingState, setPendingState] = useState<PendingState | null>(null);
 
-  // ✅ Andalkan post.likedByMe & post.savedByMe — forceLiked/forceSaved tetap ada sebagai override opsional
-  const liked = pendingState?.liked ?? forceLiked ?? post.likedByMe ?? false;
-  console.log(
-    `PostCard ${post.id} savedByMe:`,
-    post.savedByMe,
-    "type:",
-    typeof post.savedByMe,
-  );
-  const computedSaved =
-    pendingState?.saved ?? forceSaved ?? Boolean(post.savedByMe) ?? false;
-  console.log(`PostCard ${post.id} computed saved:`, computedSaved);
-  const saved = computedSaved;
+  const liked = pendingState?.liked ?? post.likedByMe ?? forceLiked ?? false;
+  const saved = post.savedByMe ?? forceSaved ?? false;
   const likeCount = pendingState?.likeCount ?? post.likeCount;
+
   const caption = post.caption?.trim() || "No caption yet.";
   const shouldClamp = caption.length > 120;
   const displayCaption =
@@ -74,7 +75,8 @@ export function PostCard({
         likeCount: likeCount + (nextLiked ? 1 : -1),
       }));
     },
-    onSettled: () => {
+    onError: () => {
+      // Only rollback on error to prevent flickering
       setPendingState(null);
     },
     onSuccess: () => {
@@ -84,31 +86,61 @@ export function PostCard({
   });
 
   const saveMutation = useMutation({
-    mutationFn: async () => {
-      console.log(
-        `💾 Save toggle post ${post.id}: currently ${saved ? "saved" : "unsaved"}`,
+    mutationFn: async (nextSaved: boolean) => {
+      return nextSaved ? savePost(post.id) : unsavePost(post.id);
+    },
+    onMutate: async (nextSaved) => {
+      await Promise.all([
+        queryClient.cancelQueries({ queryKey: postQueryKey(post.id) }),
+        queryClient.cancelQueries({ queryKey: FEED_QUERY_KEY }),
+        queryClient.cancelQueries({ queryKey: ME_SAVED_QUERY_KEY }),
+      ]);
+
+      const previousPost = queryClient.getQueryData<PostItem>(
+        postQueryKey(post.id),
       );
-      return saved ? unsavePost(post.id) : savePost(post.id);
-    },
-    onMutate: () => {
-      const nextSaved = !saved;
-      setPendingState((current) => ({
+      const previousFeed =
+        queryClient.getQueryData<InfiniteData<FeedData>>(FEED_QUERY_KEY);
+      const previousSaved =
+        queryClient.getQueryData<InfiniteData<PostListData>>(ME_SAVED_QUERY_KEY);
+
+      updatePostCaches(queryClient, post.id, (current) => ({
         ...current,
-        saved: nextSaved,
+        savedByMe: nextSaved,
       }));
+
+      if (nextSaved) {
+        addPostToSavedCache(queryClient, {
+          ...post,
+          savedByMe: true,
+        });
+      } else {
+        removePostFromSavedCache(queryClient, post.id);
+      }
+
+      return {
+        previousPost,
+        previousFeed,
+        previousSaved,
+      };
     },
-    onError: () => {
-      // Rollback on error
-      setPendingState(null);
+    onError: (_error, _nextSaved, context) => {
+      if (context?.previousPost) {
+        queryClient.setQueryData(postQueryKey(post.id), context.previousPost);
+      }
+
+      if (context?.previousFeed) {
+        queryClient.setQueryData(FEED_QUERY_KEY, context.previousFeed);
+      }
+
+      if (context?.previousSaved) {
+        queryClient.setQueryData(ME_SAVED_QUERY_KEY, context.previousSaved);
+      }
     },
     onSettled: () => {
-      setPendingState(null);
-    },
-    onSuccess: (data) => {
-      console.log(`✅ Save response:`, data);
-      queryClient.invalidateQueries({ queryKey: ["post", String(post.id)] });
-      queryClient.invalidateQueries({ queryKey: ["feed"] });
-      queryClient.invalidateQueries({ queryKey: ["me-saved"] });
+      queryClient.invalidateQueries({ queryKey: postQueryKey(post.id) });
+      queryClient.invalidateQueries({ queryKey: FEED_QUERY_KEY });
+      queryClient.invalidateQueries({ queryKey: ME_SAVED_QUERY_KEY });
     },
   });
 
@@ -125,7 +157,12 @@ export function PostCard({
       requireLogin();
       return;
     }
-    saveMutation.mutate();
+
+    if (saveMutation.isPending) {
+      return;
+    }
+
+    saveMutation.mutate(!saved);
   }
 
   return (
@@ -136,7 +173,7 @@ export function PostCard({
           className="flex items-center gap-4"
         >
           <img
-            src={post.author.avatarUrl || DEFAULT_AVATAR}
+            src={getAvatarSrc(post.author.avatarUrl)}
             alt={post.author.name}
             className="h-14 w-14 rounded-full object-cover"
           />
@@ -184,7 +221,6 @@ export function PostCard({
             <span>{post.commentCount}</span>
           </Link>
 
-          {/* ✅ Send icon tanpa count — fitur belum tersedia */}
           {showDetailAction ? (
             <button
               type="button"

@@ -2,6 +2,7 @@
 
 import { useInfiniteQuery } from "@tanstack/react-query";
 import { fetchMySaved } from "@/lib/social-api";
+import { ME_SAVED_QUERY_KEY } from "@/lib/post-cache";
 import { EmptyState } from "@/components/empty-state";
 import { PageShell } from "@/components/page-shell";
 import { PostCard } from "@/components/post-card";
@@ -10,7 +11,7 @@ import { getNextPageParam } from "@/lib/utils";
 
 export default function MySavedPage() {
   const savedQuery = useInfiniteQuery({
-    queryKey: ["my-saved"],
+    queryKey: ME_SAVED_QUERY_KEY,
     queryFn: ({ pageParam }) => fetchMySaved({ page: pageParam, limit: 10 }),
     initialPageParam: 1,
     getNextPageParam: (lastPage) => getNextPageParam(lastPage.pagination),
@@ -33,7 +34,7 @@ export default function MySavedPage() {
       ) : (
         <div className="space-y-6">
           {posts.map((post) => (
-            <PostCard key={post.id} post={post} forceSaved />
+            <PostCard key={post.id} post={post} />
           ))}
 
           {savedQuery.hasNextPage ? (

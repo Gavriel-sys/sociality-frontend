@@ -55,6 +55,8 @@ export function persistUserSnapshot(user: SessionUser) {
 
   if (user.username) {
     localStorage.setItem(USERNAME_KEY, user.username);
+  } else {
+    localStorage.removeItem(USERNAME_KEY);
   }
 
   if (user.name || user.username) {

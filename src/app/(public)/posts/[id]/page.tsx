@@ -25,8 +25,6 @@ import {
   createComment,
   deleteComment,
   deletePost,
-  fetchMyLikes,
-  fetchMySaved,
   fetchPost,
   fetchPostComments,
   fetchPostLikes,
@@ -35,21 +33,43 @@ import {
   unlikePost,
   unsavePost,
 } from "@/lib/social-api";
+import { DEFAULT_AVATAR, getAvatarSrc } from "@/lib/media";
+import {
+  addPostToSavedCache,
+  FEED_QUERY_KEY,
+  ME_SAVED_QUERY_KEY,
+  postQueryKey,
+  removePostFromSavedCache,
+  updatePostCaches,
+} from "@/lib/post-cache";
 import { buildLoginHref, getToken } from "@/lib/session";
 import { useSessionSnapshot } from "@/lib/use-session";
-import type { CommentItem, CommentListData, UserSummary } from "@/types/social";
+import type {
+  CommentItem,
+  CommentListData,
+  FeedData,
+  PostItem,
+  PostListData,
+  UserSummary,
+} from "@/types/social";
 import { EmptyState } from "@/components/empty-state";
 import { UserChip } from "@/components/user-chip";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { formatDate, formatRelativeTime, getNextPageParam } from "@/lib/utils";
 
-const DEFAULT_AVATAR = "/avatars/default-avatar.png";
-
 type PendingState = {
   liked?: boolean;
-  saved?: boolean;
   likeCount?: number;
+};
+
+type ValidationErrorResponse = {
+  response?: {
+    status?: number;
+    data?: {
+      data?: Array<{ msg: string }>;
+    };
+  };
 };
 
 export default function PostDetailPage() {
@@ -64,9 +84,8 @@ export default function PostDetailPage() {
   const [pendingState, setPendingState] = useState<PendingState | null>(null);
   const session = useSessionSnapshot();
 
-  const isLoggedIn = session.isLoggedIn;
   const postQuery = useQuery({
-    queryKey: ["post", postId],
+    queryKey: postQueryKey(postId),
     queryFn: () => fetchPost(postId),
   });
 
@@ -92,7 +111,7 @@ export default function PostDetailPage() {
   const likedUsers = likesQuery.data?.pages.flatMap((page) => page.users) ?? [];
 
   const liked = pendingState?.liked ?? postQuery.data?.likedByMe ?? false;
-const saved = pendingState?.saved ?? Boolean(postQuery.data?.saved
+  const saved = postQuery.data?.savedByMe ?? false;
   const likeCount = pendingState?.likeCount ?? postQuery.data?.likeCount ?? 0;
 
   const likeMutation = useMutation({
@@ -122,31 +141,75 @@ const saved = pendingState?.saved ?? Boolean(postQuery.data?.saved
     onSettled: () => {
       setPendingState(null);
     },
-    onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: ["post", postId] });
-      queryClient.invalidateQueries({ queryKey: ["feed"] });
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: postQueryKey(postId) });
+      queryClient.invalidateQueries({ queryKey: FEED_QUERY_KEY });
     },
   });
 
   const saveMutation = useMutation({
-    mutationFn: async () => {
-      console.log(
-        `💾 Detail save toggle post ${postId}: currently ${saved ? "saved" : "unsaved"}`,
-      );
+    mutationFn: async (nextSaved: boolean) => {
       if (!postQuery.data) return null;
-      return saved
-        ? unsavePost(postQuery.data.id)
-        : savePost(postQuery.data.id);
+      return nextSaved
+        ? savePost(postQuery.data.id)
+        : unsavePost(postQuery.data.id);
     },
-    onMutate: () => {
-      setPendingState((current) => ({ ...current, saved: !saved }));
+    onMutate: async (nextSaved) => {
+      if (!postQuery.data) {
+        return undefined;
+      }
+
+      await Promise.all([
+        queryClient.cancelQueries({ queryKey: postQueryKey(postId) }),
+        queryClient.cancelQueries({ queryKey: FEED_QUERY_KEY }),
+        queryClient.cancelQueries({ queryKey: ME_SAVED_QUERY_KEY }),
+      ]);
+
+      const previousPost = queryClient.getQueryData<PostItem>(
+        postQueryKey(postId),
+      );
+      const previousFeed =
+        queryClient.getQueryData<InfiniteData<FeedData>>(FEED_QUERY_KEY);
+      const previousSaved =
+        queryClient.getQueryData<InfiniteData<PostListData>>(ME_SAVED_QUERY_KEY);
+
+      updatePostCaches(queryClient, postQuery.data.id, (current) => ({
+        ...current,
+        savedByMe: nextSaved,
+      }));
+
+      if (nextSaved) {
+        addPostToSavedCache(queryClient, {
+          ...postQuery.data,
+          savedByMe: true,
+        });
+      } else {
+        removePostFromSavedCache(queryClient, postQuery.data.id);
+      }
+
+      return {
+        previousPost,
+        previousFeed,
+        previousSaved,
+      };
     },
-    onError: () => setPendingState(null),
-    onSettled: () => setPendingState(null),
-    onSuccess: (data) => {
-      console.log("✅ Save detail response:", data);
-      queryClient.invalidateQueries({ queryKey: ["post", postId] });
-      queryClient.invalidateQueries({ queryKey: ["me-saved"] });
+    onError: (_error, _nextSaved, context) => {
+      if (context?.previousPost) {
+        queryClient.setQueryData(postQueryKey(postId), context.previousPost);
+      }
+
+      if (context?.previousFeed) {
+        queryClient.setQueryData(FEED_QUERY_KEY, context.previousFeed);
+      }
+
+      if (context?.previousSaved) {
+        queryClient.setQueryData(ME_SAVED_QUERY_KEY, context.previousSaved);
+      }
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: postQueryKey(postId) });
+      queryClient.invalidateQueries({ queryKey: FEED_QUERY_KEY });
+      queryClient.invalidateQueries({ queryKey: ME_SAVED_QUERY_KEY });
     },
   });
 
@@ -192,7 +255,7 @@ const saved = pendingState?.saved ?? Boolean(postQuery.data?.saved
           id: 0,
           username: session.username || "me",
           name: session.displayName,
-          avatarUrl: session.avatarUrl || DEFAULT_AVATAR,
+          avatarUrl: getAvatarSrc(session.avatarUrl),
           isMe: true,
         },
         isMine: true,
@@ -260,13 +323,14 @@ const saved = pendingState?.saved ?? Boolean(postQuery.data?.saved
         typeof error === "object" &&
         "response" in (error as object)
       ) {
-        const resp = (error as any).response as
-          | { status?: number; data?: { data: Array<{ msg: string }> } }
-          | undefined;
-        if (resp?.status === 400 && resp?.data?.data) {
-          const validationErrors = resp.data.data;
+        const responseError = error as ValidationErrorResponse;
+        if (
+          responseError.response?.status === 400 &&
+          Array.isArray(responseError.response.data?.data)
+        ) {
+          const validationErrors = responseError.response.data.data;
           if (Array.isArray(validationErrors)) {
-            errorMsg = validationErrors.map((v) => (v as any).msg).join(", ");
+            errorMsg = validationErrors.map((item) => item.msg).join(", ");
           }
         }
       }
@@ -377,6 +441,12 @@ const saved = pendingState?.saved ?? Boolean(postQuery.data?.saved
           </button>
         </div>
 
+        <img
+          src={getAvatarSrc(post.author.avatarUrl)}
+          alt={post.author.name}
+          className="h-11 w-11 rounded-full object-cover"
+        />
+
         <div className="mx-auto grid max-w-[1220px] overflow-hidden rounded-[28px] border border-white/10 bg-[#040a16]/94 shadow-[0_24px_80px_rgba(0,0,0,0.48)] lg:grid-cols-[1.55fr_1fr]">
           <div className="bg-black">
             <img
@@ -391,7 +461,7 @@ const saved = pendingState?.saved ?? Boolean(postQuery.data?.saved
               <div className="flex min-w-0 items-center gap-3">
                 <Link href={`/profile/${post.author.username}`}>
                   <img
-                    src={post.author.avatarUrl || DEFAULT_AVATAR}
+                    src={getAvatarSrc(post.author.avatarUrl)}
                     alt={post.author.name}
                     className="h-11 w-11 rounded-full object-cover"
                   />
@@ -474,7 +544,7 @@ const saved = pendingState?.saved ?? Boolean(postQuery.data?.saved
                       <div className="flex items-start justify-between gap-3">
                         <div className="flex min-w-0 gap-3">
                           <img
-                            src={item.author.avatarUrl || DEFAULT_AVATAR}
+                            src={getAvatarSrc(item.author.avatarUrl)}
                             alt={item.author.name}
                             className="mt-0.5 h-9 w-9 rounded-full object-cover"
                           />
@@ -549,7 +619,13 @@ const saved = pendingState?.saved ?? Boolean(postQuery.data?.saved
                 <button
                   type="button"
                   onClick={() =>
-                    handleProtectedAction(() => saveMutation.mutate(saved))
+                    handleProtectedAction(() => {
+                      if (saveMutation.isPending) {
+                        return;
+                      }
+
+                      saveMutation.mutate(!saved);
+                    })
                   }
                   disabled={saveMutation.isPending}
                   className="transition hover:text-white/80 disabled:opacity-50"
@@ -682,6 +758,11 @@ const saved = pendingState?.saved ?? Boolean(postQuery.data?.saved
               </div>
             ) : null}
           </div>
+          <img
+            src={getAvatarSrc(session.avatarUrl)}
+            alt="My avatar"
+            className="h-9 w-9 rounded-full object-cover"
+          />
         </div>
       ) : null}
     </>
