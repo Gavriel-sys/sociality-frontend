@@ -16,8 +16,8 @@ test("identifies the scaffold with an accessible primary heading", () => {
 test("states the completed stage and pending application capabilities", () => {
   render(<ScaffoldPage />);
 
-  expect(screen.getByText("Stage 1A: scaffold and tooling.")).toBeVisible();
+  expect(screen.getByText("Stage 1B: application infrastructure completed.")).toBeVisible();
   expect(screen.getByText(
-    "Application infrastructure, authentication, API integration, and the design system are not implemented.",
+    "Authentication, feature API integration, and the design system are not implemented.",
   )).toBeVisible();
 });

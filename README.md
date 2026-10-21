@@ -1,8 +1,9 @@
 # Sociality frontend
 
-Stage 1A provides a runnable scaffold and independent quality gates. The root
-page reports this limited status. It makes no product-feature or Figma-fidelity
-acceptance claim.
+Stage 1B provides application infrastructure (Redux store, TanStack Query client,
+HTTP fetch boundary, configuration validation, and query infrastructure). The
+root page reports this status while preserving the neutral scaffold presentation.
+It makes no product-feature, authentication, or Figma-fidelity acceptance claim.
 
 ## Requirements and setup
 
@@ -15,10 +16,17 @@ npm ci
 npm run dev -- --hostname 127.0.0.1
 ```
 
-Open <http://127.0.0.1:3000>. No environment file is required for Stage 1A.
-`.env.example` documents a proposed public API origin for Stage 1B; the scaffold
-does not consume it or call the Sociality API. Never add credentials to public
-environment variables.
+Open <http://127.0.0.1:3000>.
+
+### Environment configuration
+
+Stage 1B introduces `NEXT_PUBLIC_API_BASE_URL` in `.env.example`:
+
+- Must be an HTTP or HTTPS root origin (e.g. `https://be-social-media-api-production.up.railway.app` or `http://localhost:3000`).
+- Trailing slash at root is normalized automatically.
+- Unsupported schemes, user credentials, non-root paths (including `/api`), query strings, and fragments are strictly rejected without echoing sensitive inputs.
+- URL joining constrains request targets to approved `/api/...` endpoints and rejects path traversal or scheme escapes.
+- Never add credentials, private keys, or tokens to public environment variables.
 
 For production locally, stop the development server before building:
 
@@ -43,37 +51,51 @@ npm run build
 
 Lint uses ESLint with zero warnings allowed. Typecheck runs
 `tsc --noEmit --incremental false`. Tests run Vitest once with jsdom, React
-Testing Library, and jest-dom against the actual scaffold page. The build runs
-`next build`; it is independent of lint and tests. Next.js regenerates the
-ignored `next-env.d.ts` and `.next` type metadata when needed.
+Testing Library, and jest-dom against co-located unit tests and the scaffold page.
+The build runs `next build`; it is independent of lint and tests. Next.js
+regenerates the ignored `next-env.d.ts` and `.next` type metadata when needed.
 
-For browser smoke, start the built app on loopback and check the root heading,
-desktop/mobile rendering, horizontal overflow, console errors, failed assets,
-and network traffic. A successful HTTP response alone is not browser proof.
-Keep temporary screenshots, browser reports, and logs outside authored source.
+For browser smoke, start the built app on loopback (127.0.0.1) and check the root
+heading, desktop/mobile rendering, horizontal overflow, console errors, failed
+assets, and network traffic. Ensure no unexpected external network requests are
+emitted. Keep temporary screenshots, browser reports, and logs outside authored
+source.
 
-## Completed in Stage 1A
+## Completed in Stage 1B
 
-- Next.js App Router, React, strict TypeScript, `src/`, and `@/*` imports.
-- Tailwind CSS through PostCSS, ESLint, and independent quality scripts.
-- shadcn/ui configuration, its class-name utility, and supporting neutral CSS.
-- Required MVP libraries installed: Redux Toolkit, React Redux, TanStack Query,
-  Zod, React Hook Form/resolvers, and Day.js.
-- Minimal accessible scaffold-status page with a Server Component root layout.
-- System-font fallback with no build-time font downloads or bundled font assets.
+- **Composed Providers (`src/providers/app-providers.tsx`)**: Composes Redux and
+  TanStack Query providers into a small client boundary while preserving
+  `src/app/layout.tsx` as a Server Component.
+- **Redux Infrastructure (`src/lib/store/`)**: Store factory (`makeStore`),
+  derived `RootState`, `AppStore`, `AppDispatch` types, typed hooks
+  (`useAppDispatch`, `useAppSelector`, `useAppStore`), and minimal non-persisted
+  client UI state (`uiSlice` for navigation open/closed). Server records, tokens,
+  and authentication state are explicitly excluded from Redux.
+- **TanStack Query Infrastructure (`src/lib/query/`)**: `QueryClient` factory
+  (`makeQueryClient`) and stable browser resolution (`getQueryClient`), isolated
+  per-request execution on server, documented client defaults (`staleTime: 60s`,
+  `gcTime: 5m`), mutation automatic retry disabled, and bounded query retries
+  that strictly reject aborts and non-retryable HTTP client errors (400, 401,
+  403, 404, 422).
+- **HTTP Fetch & Error Boundary (`src/lib/api/`)**: `apiFetch` using native fetch
+  with injectable transport for testing, typed error hierarchy (`ApiHttpError`,
+  `ApiNetworkError`, `ApiAbortError`, `ApiDecodeError`), safe single-read body
+  handling, explicit runtime schema/decoder support, and endpoint constraints
+  restricted to `/api/...` on the validated base origin.
+- **Query Keys & Parameters (`src/lib/query/`)**: Strict parameter normalization
+  (`normalizePaginationParams`, `normalizeSearchParams`, `buildNormalizedQueryString`)
+  guaranteeing key/URL equivalence, positive integer validation rejecting 0,
+  floats, and invalid ranges, and isolated public/private namespaces with private
+  keys requiring non-empty session identity and rejecting tokens.
 
 ## Not implemented
-
-Stage 1B remains pending: Redux store/provider, QueryClient/provider, API
-transport, configuration validation, query keys, and query infrastructure.
-Native `fetch` is the proposed transport for that stage.
 
 Stage 1C remains pending: design tokens, shared presentation components,
 design-system library, and Figma implementation. The shadcn initialization
 defaults are tooling support, not an approved product design system.
 
-Authentication, session persistence, profiles, feeds, social interactions,
-feature routes/forms, and backend integration remain pending later stages.
+Stage 2+ remains pending: authentication, session persistence, profile /me,
+feeds, social interactions, feature routes/forms, and backend live integration.
 
 The preserved files in `docs/` and `AGENTS.md` supply the project requirements.
 No deployment or backend writes are part of this scaffold.
