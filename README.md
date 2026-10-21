@@ -61,6 +61,33 @@ assets, and network traffic. Ensure no unexpected external network requests are
 emitted. Keep temporary screenshots, browser reports, and logs outside authored
 source.
 
+## Completed in Stage 2B (Login & Register UI Pages)
+
+- **Password Input Primitive (`src/features/auth/components/password-input.tsx`)**:
+  - Reusable password input wrapping `Input` with an integrated toggle button inside the right side of the field.
+  - Vector SVG icons (`Eye` and `EyeOff`) with accessible `aria-label="Show password"` / `"Hide password"`.
+  - Accessible min 44x44px touch target for the toggle icon button.
+  - Inline error/helper text handling with `aria-invalid` and `aria-describedby`.
+- **Login Form (`src/features/auth/components/login-form.tsx`)**:
+  - React Hook Form with `zodResolver(loginSchema)`.
+  - Fields: Email (`type="email"`, placeholder `"name@example.com"`), Password (`PasswordInput`, placeholder `"Enter your password"`).
+  - Form uses `noValidate` to eliminate browser tooltip collisions and surface custom accessible error states.
+  - Server error display via top `Alert variant="danger"` banner.
+  - Submit button with loading spinner and disabled state during submission.
+- **Register Form (`src/features/auth/components/register-form.tsx`)**:
+  - React Hook Form with `zodResolver(registerSchema)`.
+  - Fields: Name (`placeholder="Enter your full name"`), Username (`placeholder="Enter your username"`, helper text `"Letters, numbers, underscores only"`), Email (`type="email"`), Password (`PasswordInput`, placeholder `"Min. 6 characters"`), Phone (`type="tel"`, placeholder `"e.g. 08123456789"`).
+  - Corrects Figma placeholder issue (Name uses dedicated name placeholder, email is distinct).
+  - Handles optional phone field conversion to `undefined` when blank.
+  - Inline validation errors and top server error alert banner.
+- **Auth Shell & Pages (`src/app/(auth)/`)**:
+  - `layout.tsx`: Centered flexbox on `#000000` dark background, rendering child views inside responsive auth card container (`max-w-[345px]` mobile, `max-w-[446px]` desktop, `#0A0D12` background, `#1F242F` border, `rounded-2xl`).
+  - `/login/page.tsx`: Brand mark & "Sociality" title, "Sign in" heading, subtitle, `LoginForm`, and switch link to `/register`.
+  - `/register/page.tsx`: Brand mark & "Sociality" title, "Create an account" heading, subtitle, `RegisterForm`, and switch link to `/login`.
+  - Safe demo submit handlers executing without external network requests.
+- **Vector Icons (`src/components/ui/icons.tsx`)**:
+  - Added `EyeIcon`, `EyeOffIcon`, `Eye`, `EyeOff` vector SVGs.
+
 ## Completed in Stage 2A (Auth Schemas, Session Storage & Token Boundary)
 
 - **Zod Validation Schemas (`src/features/auth/schemas.ts`)**:
