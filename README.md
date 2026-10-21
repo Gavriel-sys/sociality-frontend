@@ -61,6 +61,36 @@ assets, and network traffic. Ensure no unexpected external network requests are
 emitted. Keep temporary screenshots, browser reports, and logs outside authored
 source.
 
+## Completed in Stage 1C (Design System & Presentation Components)
+
+- **Figma Design Tokens (`src/app/globals.css`)**:
+  - Dark mode by default (`background: #000000`, `foreground: #FDFDFD`).
+  - Dark card & surface colors (`surface: #0A0D12`, `surface-elevated: #141820`).
+  - Brand palette: primary `#6936F2`, hover accent `#7F51F9`, destructive/danger `#B41759`.
+  - Muted secondary text `#A4A7AE`, subtle dark borders `#1F242F`.
+  - Spacing rhythm: 8, 12, 16, 24, 32, 48px (Tailwind 2, 3, 4, 6, 8, 12).
+  - Radii: image 8px, card/modal 16px, pill buttons (rounded-full).
+  - Typography: SF Pro system fallback stack (`-apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", system-ui, "Segoe UI", Roboto, sans-serif`).
+- **Core UI Components (`src/components/ui/`)**:
+  - `Button`: variants (`primary`, `outline`, `ghost`, `destructive`, `icon`), sizes (`sm`, `md`, `lg`), loading spinner with `aria-busy`, disabled state, minimum 44x44px touch target.
+  - `Input` & `Textarea`: dark surface, focus-visible ring (`#7F51F9`), error border state (`#B41759`), disabled state, label and helper/error text with `aria-invalid` and `aria-describedby`.
+  - `Alert`: accessible `role="alert"`, `success` and `danger` variants with accessible vector icons and optional dismiss action.
+  - `Avatar`: circular, image loading with automatic fallback to user initials or placeholder icon, high contrast border, sizes `sm` to `xl`.
+  - `Tabs`: WAI-ARIA tab list (`role="tablist"`), triggers (`role="tab"`, `aria-selected`, `aria-controls`), and panels (`role="tabpanel"`).
+  - `Dialog`: desktop modal container, centered, dark card surface, close button, backdrop scrim, keyboard Escape listener, and body scroll lock.
+  - `Sheet`: mobile bottom sheet container, full-width bottom-pinned, dark card surface, handle bar indicator, close button, backdrop scrim.
+  - `Skeleton`: accessible loading skeleton pulse placeholder.
+  - `Icons`: lightweight, strictly typed vector SVG icons (`Search`, `Home`, `Plus`, `User`, `AlertCircle`, `CheckCircle`, `Close`, `Spinner`, `Refresh`, `EmptyBox`).
+- **Layout Shells (`src/components/layout/`)**:
+  - `Header`: brand logo (vector mark + text), search bar placeholder/input, user avatar placeholder, responsive heights (80px desktop, 64px mobile).
+  - `FloatingNav`: floating pill navigation bar with Home, Add Post (prominent brand button), and Profile; responsive floating appearance (360x80px desktop, 345x64px mobile).
+- **Feedback Components (`src/components/feedback/`)**:
+  - `LoadingState`: animated spinner with accessible `role="status"` and `aria-busy="true"`.
+  - `EmptyState`: icon, title, description, and action button.
+  - `ErrorState`: friendly error message, alert icon, and retry button affordance with callback.
+- **Showcase Page (`src/app/page.tsx`)**:
+  - Interactive design system preview exercising all components, responsive across 1440x900 desktop and 393x852 mobile viewports with zero horizontal overflow.
+
 ## Completed in Stage 1B
 
 - **Composed Providers (`src/providers/app-providers.tsx`)**: Composes Redux and
@@ -89,10 +119,6 @@ source.
   keys requiring non-empty session identity and rejecting tokens.
 
 ## Not implemented
-
-Stage 1C remains pending: design tokens, shared presentation components,
-design-system library, and Figma implementation. The shadcn initialization
-defaults are tooling support, not an approved product design system.
 
 Stage 2+ remains pending: authentication, session persistence, profile /me,
 feeds, social interactions, feature routes/forms, and backend live integration.
