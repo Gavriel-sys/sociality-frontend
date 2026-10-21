@@ -61,6 +61,28 @@ assets, and network traffic. Ensure no unexpected external network requests are
 emitted. Keep temporary screenshots, browser reports, and logs outside authored
 source.
 
+## Completed in Stage 2A (Auth Schemas, Session Storage & Token Boundary)
+
+- **Zod Validation Schemas (`src/features/auth/schemas.ts`)**:
+  - `loginSchema`: validates email (trimmed, valid email format) and password (minimum 6 characters).
+  - `registerSchema`: validates name (minimum 1 character, trimmed), username (3-30 characters, alphanumeric and underscore regex `/^[a-zA-Z0-9_]+$/`), email (trimmed, valid format), password (minimum 6 characters), and optional phone (trimmed, converted to `undefined` if empty).
+  - Inferred types: exports `LoginInput` and `RegisterInput`.
+- **Client Session Storage Wrapper (`src/features/auth/session-storage.ts`)**:
+  - Safe client-side `localStorage` wrapper guarding against SSR execution (`typeof window !== "undefined"`).
+  - Provides `saveSession(data: SessionData): void`, `loadSession(): SessionData | null`, and `clearSession(): void`.
+  - Resilience: gracefully handles private browsing mode, storage quota exceptions, and corrupted JSON without throwing.
+  - Validates session integrity ensuring non-empty `token` and `sessionId`.
+- **Redux Auth Slice (`src/features/auth/auth-slice.ts`)**:
+  - State shape: `token: string | null`, `sessionId: string | null`, `user: AuthUser | null`, `status: "idle" | "authenticated" | "unauthenticated"`.
+  - Actions: `setSession(payload: SessionData)` (updates credentials and sets status to `"authenticated"`), `clearSession()` (resets credentials to `null` and sets status to `"unauthenticated"`).
+  - Registered in Redux store (`src/lib/store/store.ts`) under `auth`.
+- **Authenticated Token Injection (`src/lib/api/api-fetch.ts`)**:
+  - Extended `ApiFetchOptions` with optional `token?: string`.
+  - Injects `Authorization: Bearer <token>` header when token is provided and non-empty.
+  - Does not overwrite custom `Authorization` headers passed explicitly.
+  - Never logs raw tokens in console or error messages.
+  - Surfaces 401 Unauthorized responses cleanly via typed `ApiHttpError`.
+
 ## Completed in Stage 1C (Design System & Presentation Components)
 
 - **Figma Design Tokens (`src/app/globals.css`)**:

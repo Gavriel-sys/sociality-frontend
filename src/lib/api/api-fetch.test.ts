@@ -260,4 +260,109 @@ describe("apiFetch", () => {
 
     expect(mockFetch).not.toHaveBeenCalled();
   });
+
+  it("attaches Authorization Bearer header when token option is provided", async () => {
+    // Arrange
+    const mockFetch = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify({ ok: true }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      }),
+    );
+
+    // Act
+    await apiFetch({
+      endpoint: "/api/me",
+      baseUrl: testBaseUrl,
+      token: "secret-jwt-token-123",
+      fetchFn: mockFetch,
+    });
+
+    // Assert
+    expect(mockFetch).toHaveBeenCalledTimes(1);
+    const passedHeaders = mockFetch.mock.calls[0][1].headers as Headers;
+    expect(passedHeaders.get("Authorization")).toBe("Bearer secret-jwt-token-123");
+  });
+
+  it("trims token and ignores empty or whitespace-only token", async () => {
+    // Arrange
+    const mockFetch = vi.fn().mockImplementation(() =>
+      Promise.resolve(new Response(JSON.stringify({ ok: true }), { status: 200 })),
+    );
+
+    // Act - trimmed
+    await apiFetch({
+      endpoint: "/api/me",
+      baseUrl: testBaseUrl,
+      token: "  trimmed-token-xyz  ",
+      fetchFn: mockFetch,
+    });
+    const headersTrimmed = mockFetch.mock.calls[0][1].headers as Headers;
+    expect(headersTrimmed.get("Authorization")).toBe("Bearer trimmed-token-xyz");
+
+    // Act - whitespace only
+    await apiFetch({
+      endpoint: "/api/me",
+      baseUrl: testBaseUrl,
+      token: "   ",
+      fetchFn: mockFetch,
+    });
+    const headersEmpty = mockFetch.mock.calls[1][1].headers as Headers;
+    expect(headersEmpty.has("Authorization")).toBe(false);
+  });
+
+  it("does not overwrite existing Authorization header explicitly passed in headers", async () => {
+    // Arrange
+    const mockFetch = vi.fn().mockImplementation(() =>
+      Promise.resolve(new Response(JSON.stringify({ ok: true }), { status: 200 })),
+    );
+
+    // Act
+    await apiFetch({
+      endpoint: "/api/me",
+      baseUrl: testBaseUrl,
+      token: "token-to-ignore",
+      headers: { Authorization: "CustomAuth custom-value" },
+      fetchFn: mockFetch,
+    });
+
+    // Assert
+    const headers = mockFetch.mock.calls[0][1].headers as Headers;
+    expect(headers.get("Authorization")).toBe("CustomAuth custom-value");
+  });
+
+  it("throws ApiHttpError with status 401 on unauthorized response", async () => {
+    // Arrange
+    const create401Response = () =>
+      new Response(JSON.stringify({ message: "Invalid or expired token" }), {
+        status: 401,
+        statusText: "Unauthorized",
+        headers: { "Content-Type": "application/json" },
+      });
+    const mockFetch = vi.fn().mockImplementation(() => Promise.resolve(create401Response()));
+
+    // Act & Assert
+    await expect(
+      apiFetch({
+        endpoint: "/api/me",
+        baseUrl: testBaseUrl,
+        token: "expired-token",
+        fetchFn: mockFetch,
+      }),
+    ).rejects.toThrow(ApiHttpError);
+
+    try {
+      await apiFetch({
+        endpoint: "/api/me",
+        baseUrl: testBaseUrl,
+        token: "expired-token",
+        fetchFn: mockFetch,
+      });
+      expect.unreachable();
+    } catch (error) {
+      const httpError = error as ApiHttpError;
+      expect(httpError.status).toBe(401);
+      expect(httpError.statusText).toBe("Unauthorized");
+    }
+  });
 });

@@ -11,6 +11,7 @@ export interface ApiFetchOptions<T = unknown> {
   readonly method?: "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
   readonly headers?: Record<string, string>;
   readonly body?: unknown;
+  readonly token?: string;
   readonly signal?: AbortSignal;
   readonly baseUrl?: string;
   readonly fetchFn?: typeof fetch;
@@ -28,16 +29,26 @@ function serializeBody(body: unknown): string | undefined {
   return typeof body === "string" ? body : JSON.stringify(body);
 }
 
-function createRequestHeaders(
-  customHeaders: Record<string, string> | undefined,
-  hasBody: boolean,
-): Headers {
-  const headers = new Headers(customHeaders);
-  if (hasBody && !headers.has("Content-Type")) {
+interface RequestHeadersConfig {
+  readonly customHeaders?: Record<string, string>;
+  readonly hasBody: boolean;
+  readonly token?: string;
+}
+
+function createRequestHeaders(config: RequestHeadersConfig): Headers {
+  const headers = new Headers(config.customHeaders);
+  if (config.hasBody && !headers.has("Content-Type")) {
     headers.set("Content-Type", "application/json");
   }
   if (!headers.has("Accept")) {
     headers.set("Accept", "application/json");
+  }
+  if (
+    config.token !== undefined &&
+    config.token.trim().length > 0 &&
+    !headers.has("Authorization")
+  ) {
+    headers.set("Authorization", `Bearer ${config.token.trim()}`);
   }
   return headers;
 }
@@ -79,7 +90,11 @@ export async function apiFetch<T = unknown>(options: ApiFetchOptions<T>): Promis
   const targetUrl = buildApiUrl(options.endpoint, options.baseUrl);
   const fetchClient = resolveFetch(options.fetchFn);
   const serialized = serializeBody(options.body);
-  const headers = createRequestHeaders(options.headers, serialized !== undefined);
+  const headers = createRequestHeaders({
+    customHeaders: options.headers,
+    hasBody: serialized !== undefined,
+    token: options.token,
+  });
 
   let response: Response;
   try {
