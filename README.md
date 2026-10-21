@@ -61,6 +61,37 @@ assets, and network traffic. Ensure no unexpected external network requests are
 emitted. Keep temporary screenshots, browser reports, and logs outside authored
 source.
 
+## Completed in Stage 2D (Read-Only /me Profile Page & E2E Auth Integration)
+
+- **Profile Domain Types & Normalizer (`src/features/profile/types.ts`)**:
+  - `UserProfile` domain interface: `id`, `name`, `username`, optional `email`, `phone`, `bio`, `avatarUrl`, and numeric counts `postsCount`, `followersCount`, `followingCount`.
+  - `normalizeUserProfile(raw: unknown): UserProfile`: decodes and normalizes both flat API payloads and nested `{ data: ... }` / `{ user: ... }` response envelopes, with fallback resolution for Prisma-style `_count` objects.
+- **TanStack Query Profile Hook (`src/features/profile/use-my-profile.ts`)**:
+  - `useMyProfile()` hook querying `GET /api/me`.
+  - Session-scoped query key: uses `queryKeys.private(sessionId).me()` ensuring private cache isolation across user sessions without leaking tokens into query keys.
+  - Enabled guard: query runs only when authenticated (`token` and `sessionId` present).
+  - Integrates `apiFetch` with `normalizeUserProfile` decoder and forwards abort signal.
+  - Returns `{ profile, isLoading, isError, error, refetch }`.
+- **Profile Header Component (`src/features/profile/components/profile-header.tsx`)**:
+  - Responsive layout matching Figma frames (Desktop 41420:6315 max-width 812px, Mobile 41439:4314 max-width 361px).
+  - Avatar with initials fallback or image URL (`size="xl"`, responsive dimensions `h-16 w-16 md:h-20 md:w-20`).
+  - Identity presentation: bold display name (`#FDFDFD`), `@username` (`#A4A7AE`), bio text with fallback "No bio yet".
+  - Quick stats row displaying `Posts`, `Followers`, and `Following` counts with bold numbers.
+  - Action buttons: "Edit profile" (accessible disabled placeholder with "Available in Stage 7" notice) and "Log out" button invoking `useLogout()`.
+- **Read-Only /me Profile Page (`src/app/(private)/me/page.tsx`)**:
+  - Wrapped with `<AuthGuard>` to strictly prevent unauthenticated access.
+  - Full feedback lifecycle: loading skeleton (`ProfileSkeleton`), error state with retry (`ErrorState`), and loaded profile view.
+  - WAI-ARIA accessible tabs: `Overview` (active), `Posts`, `Saved`, `Likes`, `Settings`.
+  - `Overview` tab: displays user account details (email, user ID) and honest stage notice ("Posts, Saved, and Liked collections will be integrated in Stages 3–5.").
+  - Content tabs: display `<EmptyState>` indicating future stage integration.
+  - Layout includes top sticky `Header` and floating navigation pill `FloatingNav activeKey="profile"`.
+- **Header Avatar Link Integration (`src/components/layout/header.tsx`)**:
+  - Avatar button links to `/me` if authenticated, or `/login` if unauthenticated.
+  - Redux-aware navigation without crashing in disconnected preview environments.
+- **E2E Auth Integration Test Suite (`tests/auth/auth-lifecycle.test.tsx`)**:
+  - Validates complete user lifecycle: registration schema verification -> mock login credential submission -> session storage persistence and Redux hydration -> `/me` protected view rendering with real user data -> logout execution (clearing storage, Redux auth, and TanStack Query cache, with safe redirection to `/login`).
+  - Verifies AuthGuard redirecting unauthenticated `/me` visits to `/login?returnTo=%2Fme`.
+
 ## Completed in Stage 2C (Auth Guard, Route Protection & Logout Lifecycle)
 
 - **Safe Return URL Utilities (`src/features/auth/redirect-utils.ts`)**:
@@ -193,8 +224,7 @@ source.
 
 ## Not implemented
 
-Stage 2+ remains pending: authentication, session persistence, profile /me,
-feeds, social interactions, feature routes/forms, and backend live integration.
+Stage 2 (Authentication, Session Lifecycle, and Read-Only /me Profile) is completed. Stage 3+ remains pending: feed, Explore, social interactions (like, save, follow), post authoring, comments, and profile editing.
 
 The preserved files in `docs/` and `AGENTS.md` supply the project requirements.
 No deployment or backend writes are part of this scaffold.
