@@ -2,10 +2,11 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { GuestGuard } from "@/components/auth/guest-guard";
 import { RegisterForm } from "@/features/auth/components/register-form";
 import type { RegisterInput } from "@/features/auth/schemas";
 
-export default function RegisterPage() {
+function RegisterView() {
   const [isLoading, setIsLoading] = useState(false);
   const [serverError, setServerError] = useState<string | null>(null);
 
@@ -26,7 +27,6 @@ export default function RegisterPage() {
   return (
     <div className="flex flex-col gap-6">
       <div className="flex flex-col gap-4">
-        {/* Brand mark & title */}
         <div className="flex items-center gap-2.5">
           <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-[#7F51F9] to-[#6936F2] shadow-sm">
             <svg
@@ -71,5 +71,13 @@ export default function RegisterPage() {
         </Link>
       </p>
     </div>
+  );
+}
+
+export default function RegisterPage() {
+  return (
+    <GuestGuard>
+      <RegisterView />
+    </GuestGuard>
   );
 }

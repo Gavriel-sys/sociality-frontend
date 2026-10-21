@@ -2,10 +2,15 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { useRouter, useSearchParams } from "next/navigation";
+import { GuestGuard } from "@/components/auth/guest-guard";
 import { LoginForm } from "@/features/auth/components/login-form";
+import { getSafeReturnUrl } from "@/features/auth/redirect-utils";
 import type { LoginInput } from "@/features/auth/schemas";
 
-export default function LoginPage() {
+function LoginView() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const [isLoading, setIsLoading] = useState(false);
   const [serverError, setServerError] = useState<string | null>(null);
 
@@ -16,6 +21,9 @@ export default function LoginPage() {
     try {
       // Pure local demo simulation without external network requests
       await new Promise((resolve) => setTimeout(resolve, 300));
+      const returnTo = searchParams?.get("returnTo");
+      const target = getSafeReturnUrl(returnTo, "/me");
+      router.push(target);
     } catch {
       setServerError("An unexpected error occurred. Please try again.");
     } finally {
@@ -26,7 +34,6 @@ export default function LoginPage() {
   return (
     <div className="flex flex-col gap-6">
       <div className="flex flex-col gap-4">
-        {/* Brand mark & title */}
         <div className="flex items-center gap-2.5">
           <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-[#7F51F9] to-[#6936F2] shadow-sm">
             <svg
@@ -71,5 +78,13 @@ export default function LoginPage() {
         </Link>
       </p>
     </div>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <GuestGuard>
+      <LoginView />
+    </GuestGuard>
   );
 }

@@ -61,6 +61,30 @@ assets, and network traffic. Ensure no unexpected external network requests are
 emitted. Keep temporary screenshots, browser reports, and logs outside authored
 source.
 
+## Completed in Stage 2C (Auth Guard, Route Protection & Logout Lifecycle)
+
+- **Safe Return URL Utilities (`src/features/auth/redirect-utils.ts`)**:
+  - `getSafeReturnUrl(target, fallback = "/me")`: validates internal relative destination paths against open redirect vulnerabilities.
+  - Rejects external protocol schemes (`https://`, `http://`, `ftp://`), protocol-relative URLs (`//evil.com`), backslash bypasses (`/\evil.com`), executable pseudo-protocols (`javascript:`, `data:`), path traversal attempts (`/..`, `/../secret`, `/%2e%2e`), and control characters.
+  - Returns validated internal path or the safe fallback (`/me`).
+- **Logout Hook (`src/features/auth/use-logout.ts`)**:
+  - `useLogout()` returns a coordinated `logout(redirectPath = "/login")` action (and `{ logout }` object property).
+  - Strictly coordinates all three state layers to eliminate stale data leakage across accounts:
+    1. Clears browser session storage (`clearSession()`).
+    2. Dispatches `clearSession()` to Redux `authSlice`.
+    3. Clears TanStack Query cache (`queryClient.clear()`).
+    4. Navigates to `/login` via `router.push('/login')`.
+- **Client Route Guards (`src/components/auth/`)**:
+  - `AuthGuard` (`src/components/auth/auth-guard.tsx`): Guards private routes. Renders accessible `LoadingState` while auth status is `"idle"` (hydrating). Redirects unauthenticated users to `/login?returnTo=${encodeURIComponent(currentPath)}`. Renders protected children once authenticated.
+  - `GuestGuard` (`src/components/auth/guest-guard.tsx`): Guards guest-only routes (`/login`, `/register`). Redirects already-authenticated users to `/me` (or sanitized `returnTo` parameter). Renders children when unauthenticated or idle.
+- **Client Session Hydration (`src/providers/app-providers.tsx`)**:
+  - `SessionHydrator` component executes on initial client mount inside Redux provider.
+  - Reads stored credentials via `loadSession()`.
+  - Dispatches `setSession(session)` when a valid session exists or `clearSession()` when no session exists, transitioning Redux auth status from `"idle"` to `"authenticated"` or `"unauthenticated"`.
+- **Auth Page Integration (`src/app/(auth)/login/page.tsx` & `src/app/(auth)/register/page.tsx`)**:
+  - Both `/login` and `/register` are wrapped with `GuestGuard`.
+  - `/login` redirects to validated `returnTo` URL upon successful login completion.
+
 ## Completed in Stage 2B (Login & Register UI Pages)
 
 - **Password Input Primitive (`src/features/auth/components/password-input.tsx`)**:
