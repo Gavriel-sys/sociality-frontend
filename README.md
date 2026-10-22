@@ -61,6 +61,28 @@ assets, and network traffic. Ensure no unexpected external network requests are
 emitted. Keep temporary screenshots, browser reports, and logs outside authored
 source.
 
+## Completed in Stage 3A (Post Data Models, Decoder & Reusable PostCard Component)
+
+- **Post Domain Types & Normalizer (`src/features/posts/types.ts`)**:
+  - `PostAuthor` domain interface: `id`, `name`, `username`, optional `avatarUrl`.
+  - `Post` domain interface: `id`, `caption`, `imageUrl`, `createdAt`, `author`, `likesCount`, `commentsCount`, `isLiked`, `isSaved`.
+  - `PaginatedPosts` domain interface: `posts`, `nextPage`, `hasMore`, optional `total`.
+  - `normalizePost(raw: unknown): Post`: defensively decodes API responses and envelopes (`data` or `post`), normalizes Prisma-style `_count` (`likes`, `comments`), safely resolves author from nested `author` / `user` objects or flat fields, and guarantees numeric counters default to 0 and interaction booleans default to false.
+- **Day.js Relative Time Formatter (`src/features/posts/date-utils.ts`)**:
+  - `formatRelativeTime(dateInput, referenceTime?)`: converts ISO date strings into human-friendly relative time ("Just now", "Xm ago", "Xh ago", "Xd ago", or "DD MMM YYYY" for older dates).
+  - Robust error fallback: returns "Recently" for invalid dates, empty strings, null, or undefined values.
+- **Reusable PostCard Component (`src/features/posts/components/post-card.tsx`)**:
+  - Responsive layout matching Figma frames (Desktop 41420:11177 max-width 600px, Mobile 41433:3839 max-width 361px, dark surface `#0A0D12`, border `#1F242F`, `rounded-2xl`).
+  - Header: author circular avatar (`Avatar size="md"` 40x40px) with initials fallback, display name, `@username`, relative timestamp, and overflow 3-dots button (`MoreHorizontalIcon`).
+  - Media container: 1:1 aspect ratio (`aspect-square`), dark skeleton loading pulse placeholder, smooth image fade-in, and graceful fallback card with `ImageIcon` on broken or missing media.
+  - Action row: Like button (pink/crimson `#B41759` active heart, outline inactive), Comment button with counter, Share button, and Save/Bookmark button with accessible `aria-label` attributes and minimum 44x44px touch targets.
+  - Caption block: author username in bold with caption text, and an expandable "Show more" / "Show less" toggle for captions longer than 120 characters.
+- **PostCard Skeleton Component (`src/features/posts/components/post-card-skeleton.tsx`)**:
+  - Matches the `PostCard` dimensions with loading skeleton placeholders for author row, square image, action buttons, and caption lines (`aria-busy="true"`, `role="status"`).
+- **Unit & Integration Test Suites**:
+  - `date-utils.test.ts`: validates relative time intervals (minutes, hours, days, older dates, future/sub-minute timestamps, invalid date fallbacks).
+  - `post-card.test.tsx`: validates normalizer edge cases (envelopes, counts, fallbacks), full card rendering, like/save active states and accessible labels, 44px action click callbacks, caption truncation toggle, image error fallback box, and skeleton component.
+
 ## Completed in Stage 2D (Read-Only /me Profile Page & E2E Auth Integration)
 
 - **Profile Domain Types & Normalizer (`src/features/profile/types.ts`)**:
