@@ -1,4 +1,7 @@
+"use client";
+
 import type { HTMLAttributes } from "react";
+import { useRouter } from "next/navigation";
 import { HomeIcon, PlusIcon, UserIcon } from "@/components/ui/icons";
 import { cn } from "@/lib/utils";
 
@@ -9,12 +12,34 @@ export interface FloatingNavProps extends HTMLAttributes<HTMLElement> {
   readonly onSelectKey?: (key: NavItemKey) => void;
 }
 
+function useSafeRouter() {
+  try {
+    return useRouter();
+  } catch {
+    return null;
+  }
+}
+
 export function FloatingNav({
   activeKey = "home",
   onSelectKey,
   className,
   ...props
 }: Readonly<FloatingNavProps>) {
+  const router = useSafeRouter();
+
+  const handleSelectKey = (key: NavItemKey) => {
+    if (onSelectKey) {
+      onSelectKey(key);
+      return;
+    }
+    if (key === "home") {
+      router?.push("/feed");
+    } else if (key === "profile") {
+      router?.push("/me");
+    }
+  };
+
   return (
     <nav
       role="navigation"
@@ -30,7 +55,7 @@ export function FloatingNav({
       {/* Home button */}
       <button
         type="button"
-        onClick={() => onSelectKey?.("home")}
+        onClick={() => handleSelectKey("home")}
         aria-label="Home"
         aria-current={activeKey === "home" ? "page" : undefined}
         className={cn(
@@ -46,7 +71,7 @@ export function FloatingNav({
       {/* Add Post button (prominent center pill) */}
       <button
         type="button"
-        onClick={() => onSelectKey?.("add")}
+        onClick={() => handleSelectKey("add")}
         aria-label="Create post"
         className={cn(
           "inline-flex items-center justify-center rounded-full bg-[#6936F2] text-[#FDFDFD] shadow-lg shadow-[#6936F2]/30",
@@ -60,7 +85,7 @@ export function FloatingNav({
       {/* Profile button */}
       <button
         type="button"
-        onClick={() => onSelectKey?.("profile")}
+        onClick={() => handleSelectKey("profile")}
         aria-label="Profile"
         aria-current={activeKey === "profile" ? "page" : undefined}
         className={cn(

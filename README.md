@@ -61,6 +61,35 @@ assets, and network traffic. Ensure no unexpected external network requests are
 emitted. Keep temporary screenshots, browser reports, and logs outside authored
 source.
 
+## Completed in Stage 3B (Infinite Query Hook & Feed Page /feed)
+
+- **Infinite Feed Query Hook (`src/features/feed/use-infinite-feed.ts`)**:
+  - `useInfiniteFeed()` TanStack Query hook managing paginated feeds from `GET /api/feed?page=X&limit=10`.
+  - Session-scoped query key: uses `queryKeys.private(sessionId).feed()`, preventing cache collisions across accounts while keeping tokens completely out of query keys.
+  - Enabled guard: query runs strictly when authenticated (`token` and `sessionId` present).
+  - Normalization: maps page responses through `normalizePost` with flexible envelope support (raw arrays, `{ posts: [...] }`, or `{ data: [...] }`).
+  - Strict ID deduplication: aggregates cross-page posts using an order-preserving Map keyed by `post.id`, guaranteeing zero duplicate React keys.
+  - Page calculation: `getNextPageParam` evaluates fetched page item count against `limit: 10`, terminating pagination cleanly when `lastPage.length < 10` and otherwise requesting `allPages.length + 1`.
+  - Return signature: `{ posts, isLoading, isError, error, isFetchingNextPage, hasNextPage, fetchNextPage, refetch }`.
+- **Protected Feed Page (`src/app/(private)/feed/page.tsx`)**:
+  - Wrapped with `<AuthGuard>` to redirect unauthenticated visits to `/login?returnTo=%2Ffeed`.
+  - Responsive design strictly following Figma frames (Desktop max 600px `max-w-[600px]`, Mobile max 361px `max-w-[361px]`, `#000000` background, `pb-32` bottom padding for floating navigation).
+  - Top `Header` with current user avatar/fallback and search input.
+  - Comprehensive feedback lifecycle:
+    - Loading state: renders 3 `PostCardSkeleton` placeholders.
+    - Error state: renders `ErrorState` with retry button invoking `refetch()`.
+    - Empty state: renders `EmptyState` ("No posts in your feed yet") with "Explore creators" action button navigating to `/explore`.
+    - Loaded list: renders vertically stacked `PostCard` components (`space-y-6`).
+    - Pagination affordance: renders centered "Load more posts" button when `hasNextPage` (displaying spinner during `isFetchingNextPage`) and "You're all caught up!" text once end of feed is reached.
+  - Bottom `FloatingNav` with `activeKey="home"`.
+- **Floating Navigation Routing Update (`src/components/layout/floating-nav.tsx`)**:
+  - Converted to client component with `useRouter`.
+  - Home button navigates to `/feed` by default (or invokes custom `onSelectKey` when provided).
+  - Profile button navigates to `/me` by default.
+- **Unit & Component Test Suites**:
+  - `use-infinite-feed.test.ts`: validates unauthenticated disabled state, first page fetch and normalization, next page appending, cross-page post ID deduplication, and API error response handling.
+  - `feed/page.test.tsx`: validates 3-skeleton loading state, error state with retry button trigger, empty feed state with explore action, populated feed card rendering with end-of-list message, and "Load more posts" pagination button triggering `fetchNextPage`.
+
 ## Completed in Stage 3A (Post Data Models, Decoder & Reusable PostCard Component)
 
 - **Post Domain Types & Normalizer (`src/features/posts/types.ts`)**:
