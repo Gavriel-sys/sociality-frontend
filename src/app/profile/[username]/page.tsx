@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, use, useContext, useSyncExternalStore } from "react";
+import { Suspense, use, useContext, useState, useSyncExternalStore } from "react";
 import { useRouter } from "next/navigation";
 import { ReactReduxContext } from "react-redux";
 import { EmptyState } from "@/components/feedback/empty-state";
@@ -12,31 +12,19 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { PostCard } from "@/features/posts/components/post-card";
 import { PostCardSkeleton } from "@/features/posts/components/post-card-skeleton";
 import { PublicProfileHeader } from "@/features/profile/components/public-profile-header";
+import { UserListDialog } from "@/features/profile/components/user-list-dialog";
 import { usePublicProfile, useUserLikes, useUserPosts } from "@/features/profile/public-profile";
+import { useUserFollowers, useUserFollowing } from "@/features/profile/use-user-network";
 
 export interface PublicProfilePageProps {
   readonly params: Promise<{ username: string }> | { username: string };
-}
-
-function useSafeRouter() {
-  try {
-    return useRouter();
-  } catch {
-    return null;
-  }
 }
 
 function useAuthUser() {
   const reduxContext = useContext(ReactReduxContext);
   return useSyncExternalStore(
     (cb) => (reduxContext ? reduxContext.store.subscribe(cb) : () => {}),
-    () => {
-      if (!reduxContext) return null;
-      const state = reduxContext.store.getState() as {
-        auth?: { user?: { username?: string; name?: string } | null };
-      } | undefined;
-      return state?.auth?.user ?? null;
-    },
+    () => ((reduxContext?.store.getState() as { auth?: { user?: { username?: string; name?: string } | null } })?.auth?.user ?? null),
     () => null,
   );
 }
@@ -46,35 +34,32 @@ function PublicProfileSkeleton() {
     <div className="space-y-6 py-4 animate-pulse" aria-label="Loading profile">
       <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 sm:gap-6">
         <Skeleton className="h-16 w-16 md:h-20 md:w-20 rounded-full shrink-0" />
-        <div className="space-y-2 flex-1">
-          <Skeleton className="h-6 w-44 rounded" />
-          <Skeleton className="h-4 w-28 rounded" />
-          <Skeleton className="h-4 w-60 rounded" />
-        </div>
+        <div className="space-y-2 flex-1"><Skeleton className="h-6 w-44 rounded" /><Skeleton className="h-4 w-28 rounded" /><Skeleton className="h-4 w-60 rounded" /></div>
       </div>
       <Skeleton className="h-11 w-28 rounded-full" />
-      <div className="flex flex-col items-center gap-4 pt-4">
-        <PostCardSkeleton />
-        <PostCardSkeleton />
-      </div>
+      <div className="flex flex-col items-center gap-4 pt-4"><PostCardSkeleton /><PostCardSkeleton /></div>
     </div>
   );
 }
 
 function ProfileContent({ params }: Readonly<PublicProfilePageProps>) {
-  const router = useSafeRouter();
+  const router = useRouter();
   const unwrapped = typeof (params as Promise<{ username: string }>).then === "function"
     ? use(params as Promise<{ username: string }>)
     : (params as { username: string });
 
-  const rawUsername = unwrapped?.username ?? "";
-  const username = decodeURIComponent(rawUsername);
+  const username = decodeURIComponent(unwrapped?.username ?? "");
   const authUser = useAuthUser();
   const isSelf = Boolean(authUser?.username && authUser.username.toLowerCase() === username.toLowerCase());
+  const [dialogType, setDialogType] = useState<"followers" | "following" | null>(null);
 
   const { profile, isLoading: isProfileLoading, isError: isProfileError, error: profileError } = usePublicProfile(username);
   const { posts, isLoading: isPostsLoading, isError: isPostsError, refetch: refetchPosts } = useUserPosts(username);
   const { likedPosts, isLoading: isLikesLoading, isError: isLikesError, refetch: refetchLikes } = useUserLikes(username);
+  const { users: followers, isLoading: isFollowersLoading, isError: isFollowersError, refetch: refetchFollowers } =
+    useUserFollowers(dialogType === "followers" ? username : "");
+  const { users: following, isLoading: isFollowingLoading, isError: isFollowingError, refetch: refetchFollowing } =
+    useUserFollowing(dialogType === "following" ? username : "");
 
   const isNotFound = isProfileError || (!isProfileLoading && !profile);
 
@@ -93,35 +78,40 @@ function ProfileContent({ params }: Readonly<PublicProfilePageProps>) {
           />
         ) : (
           <>
-            <PublicProfileHeader profile={profile} isSelf={isSelf} />
+            <PublicProfileHeader
+              profile={profile}
+              isSelf={isSelf}
+              onFollowersClick={() => setDialogType("followers")}
+              onFollowingClick={() => setDialogType("following")}
+            />
             <Tabs defaultValue="posts">
               <TabsList aria-label="Profile content tabs" className="w-full justify-start">
                 <TabsTrigger value="posts">Posts</TabsTrigger>
                 <TabsTrigger value="likes">Likes</TabsTrigger>
               </TabsList>
               <TabsContent value="posts">
-                {isPostsLoading ? (
-                  <div className="flex flex-col items-center gap-4"><PostCardSkeleton /><PostCardSkeleton /></div>
-                ) : isPostsError ? (
-                  <ErrorState title="Failed to load posts" onRetry={() => void refetchPosts()} />
-                ) : posts.length === 0 ? (
-                  <EmptyState title="No posts yet" description="This user hasn't posted anything yet." />
-                ) : (
-                  <div className="flex flex-col items-center gap-4">{posts.map((post) => <PostCard key={post.id} post={post} />)}</div>
-                )}
+                {isPostsLoading ? <div className="flex flex-col items-center gap-4"><PostCardSkeleton /><PostCardSkeleton /></div>
+                  : isPostsError ? <ErrorState title="Failed to load posts" onRetry={() => void refetchPosts()} />
+                  : posts.length === 0 ? <EmptyState title="No posts yet" description="This user hasn't posted anything yet." />
+                  : <div className="flex flex-col items-center gap-4">{posts.map((p) => <PostCard key={p.id} post={p} />)}</div>}
               </TabsContent>
               <TabsContent value="likes">
-                {isLikesLoading ? (
-                  <div className="flex flex-col items-center gap-4"><PostCardSkeleton /><PostCardSkeleton /></div>
-                ) : isLikesError ? (
-                  <ErrorState title="Failed to load liked posts" onRetry={() => void refetchLikes()} />
-                ) : likedPosts.length === 0 ? (
-                  <EmptyState title="No liked posts yet" description="This user hasn't liked any posts yet." />
-                ) : (
-                  <div className="flex flex-col items-center gap-4">{likedPosts.map((post) => <PostCard key={post.id} post={post} />)}</div>
-                )}
+                {isLikesLoading ? <div className="flex flex-col items-center gap-4"><PostCardSkeleton /><PostCardSkeleton /></div>
+                  : isLikesError ? <ErrorState title="Failed to load liked posts" onRetry={() => void refetchLikes()} />
+                  : likedPosts.length === 0 ? <EmptyState title="No liked posts yet" description="This user hasn't liked any posts yet." />
+                  : <div className="flex flex-col items-center gap-4">{likedPosts.map((p) => <PostCard key={p.id} post={p} />)}</div>}
               </TabsContent>
             </Tabs>
+            <UserListDialog
+              isOpen={dialogType !== null}
+              onClose={() => setDialogType(null)}
+              title={dialogType === "followers" ? "Followers" : "Following"}
+              users={dialogType === "followers" ? followers : following}
+              isLoading={dialogType === "followers" ? isFollowersLoading : isFollowingLoading}
+              isError={dialogType === "followers" ? isFollowersError : isFollowingError}
+              emptyMessage={dialogType === "followers" ? "No followers yet" : "Not following anyone yet"}
+              onRetry={dialogType === "followers" ? () => void refetchFollowers() : () => void refetchFollowing()}
+            />
           </>
         )}
       </main>

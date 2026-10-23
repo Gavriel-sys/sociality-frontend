@@ -8,6 +8,8 @@ import type { UserProfile } from "../types";
 export interface ProfileHeaderProps {
   readonly profile: UserProfile;
   readonly onLogout?: () => void;
+  readonly onFollowersClick?: () => void;
+  readonly onFollowingClick?: () => void;
 }
 
 function LogOutIcon() {
@@ -32,13 +34,14 @@ function LogOutIcon() {
 export function ProfileHeader({
   profile,
   onLogout,
+  onFollowersClick,
+  onFollowingClick,
 }: Readonly<ProfileHeaderProps>) {
   const logoutAction = useLogout();
   const handleLogout = onLogout ?? (() => logoutAction());
 
   return (
     <div className="flex flex-col gap-5 py-4">
-      {/* Top section: Avatar and User Details */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 sm:gap-6">
         <Avatar
           src={profile.avatarUrl}
@@ -61,23 +64,33 @@ export function ProfileHeader({
         </div>
       </div>
 
-      {/* Stats counter row */}
       <div className="flex items-center gap-6 sm:gap-8 border-y border-[#1F242F] py-3 text-sm">
         <div className="flex items-center gap-1.5">
           <span className="font-bold text-[#FDFDFD]">{profile.postsCount}</span>
           <span className="text-[#A4A7AE]">Posts</span>
         </div>
-        <div className="flex items-center gap-1.5">
+        <button
+          type="button"
+          onClick={onFollowersClick}
+          aria-haspopup="dialog"
+          aria-label={`${profile.followersCount} Followers`}
+          className="flex items-center gap-1.5 rounded transition-colors hover:text-[#7F51F9] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7F51F9]"
+        >
           <span className="font-bold text-[#FDFDFD]">{profile.followersCount}</span>
           <span className="text-[#A4A7AE]">Followers</span>
-        </div>
-        <div className="flex items-center gap-1.5">
+        </button>
+        <button
+          type="button"
+          onClick={onFollowingClick}
+          aria-haspopup="dialog"
+          aria-label={`${profile.followingCount} Following`}
+          className="flex items-center gap-1.5 rounded transition-colors hover:text-[#7F51F9] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7F51F9]"
+        >
           <span className="font-bold text-[#FDFDFD]">{profile.followingCount}</span>
           <span className="text-[#A4A7AE]">Following</span>
-        </div>
+        </button>
       </div>
 
-      {/* Action buttons row */}
       <div className="flex items-center gap-3">
         <div className="relative inline-flex items-center">
           <Button

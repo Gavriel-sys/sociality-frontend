@@ -38,6 +38,28 @@ describe("ProfileHeader", () => {
     expect(screen.getByText("Following")).toBeInTheDocument();
   });
 
+  it("triggers onFollowersClick and onFollowingClick callbacks", () => {
+    const handleFollowers = vi.fn();
+    const handleFollowing = vi.fn();
+    render(
+      <ProfileHeader
+        profile={mockProfile}
+        onFollowersClick={handleFollowers}
+        onFollowingClick={handleFollowing}
+      />,
+    );
+
+    const followersBtn = screen.getByRole("button", { name: "820 Followers" });
+    expect(followersBtn).toHaveAttribute("aria-haspopup", "dialog");
+    fireEvent.click(followersBtn);
+    expect(handleFollowers).toHaveBeenCalledTimes(1);
+
+    const followingBtn = screen.getByRole("button", { name: "210 Following" });
+    expect(followingBtn).toHaveAttribute("aria-haspopup", "dialog");
+    fireEvent.click(followingBtn);
+    expect(handleFollowing).toHaveBeenCalledTimes(1);
+  });
+
   it("displays placeholder bio when bio is not provided", () => {
     const noBioProfile: UserProfile = {
       ...mockProfile,

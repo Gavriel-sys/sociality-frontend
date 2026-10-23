@@ -5,6 +5,7 @@ import { ReactReduxContext } from "react-redux";
 import { Avatar } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
 import type { PublicUserProfile } from "../types";
+import { useFollowToggle } from "../use-follow-toggle";
 import { FollowButton } from "./follow-button";
 
 export interface PublicProfileHeaderProps {
@@ -12,6 +13,8 @@ export interface PublicProfileHeaderProps {
   readonly isSelf?: boolean;
   readonly onFollowToggle?: () => void;
   readonly isFollowLoading?: boolean;
+  readonly onFollowersClick?: () => void;
+  readonly onFollowingClick?: () => void;
   readonly className?: string;
 }
 
@@ -27,12 +30,25 @@ export function PublicProfileHeader({
   profile,
   isSelf,
   onFollowToggle,
-  isFollowLoading = false,
+  isFollowLoading,
+  onFollowersClick,
+  onFollowingClick,
   className,
 }: Readonly<PublicProfileHeaderProps>) {
   const detectedSelf = useIsSelfAuth(profile.username);
   const resolvedSelf = isSelf !== undefined ? isSelf : detectedSelf;
   const displayName = profile.name || profile.username || "Anonymous User";
+
+  const followToggle = useFollowToggle({
+    username: profile.username,
+    isFollowing: profile.isFollowing,
+    followersCount: profile.followersCount,
+  });
+
+  const handleFollowToggle = onFollowToggle ?? followToggle.toggleFollow;
+  const resolvedLoading = isFollowLoading ?? followToggle.isLoading;
+  const resolvedFollowing = onFollowToggle !== undefined ? profile.isFollowing : followToggle.isFollowing;
+  const resolvedFollowers = onFollowToggle !== undefined ? profile.followersCount : followToggle.followersCount;
 
   return (
     <div className={cn("flex flex-col gap-5 py-4", className)}>
@@ -63,21 +79,33 @@ export function PublicProfileHeader({
           <span className="font-bold text-[#FDFDFD]">{profile.postsCount}</span>
           <span className="text-[#A4A7AE]">Posts</span>
         </div>
-        <div className="flex items-center gap-1.5">
-          <span className="font-bold text-[#FDFDFD]">{profile.followersCount}</span>
+        <button
+          type="button"
+          onClick={onFollowersClick}
+          aria-haspopup="dialog"
+          aria-label={`${resolvedFollowers} Followers`}
+          className="flex items-center gap-1.5 rounded transition-colors hover:text-[#7F51F9] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7F51F9]"
+        >
+          <span className="font-bold text-[#FDFDFD]">{resolvedFollowers}</span>
           <span className="text-[#A4A7AE]">Followers</span>
-        </div>
-        <div className="flex items-center gap-1.5">
+        </button>
+        <button
+          type="button"
+          onClick={onFollowingClick}
+          aria-haspopup="dialog"
+          aria-label={`${profile.followingCount} Following`}
+          className="flex items-center gap-1.5 rounded transition-colors hover:text-[#7F51F9] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7F51F9]"
+        >
           <span className="font-bold text-[#FDFDFD]">{profile.followingCount}</span>
           <span className="text-[#A4A7AE]">Following</span>
-        </div>
+        </button>
       </div>
 
       <div className="flex items-center gap-3">
         <FollowButton
-          isFollowing={profile.isFollowing}
-          onClick={onFollowToggle}
-          isLoading={isFollowLoading}
+          isFollowing={resolvedFollowing}
+          onClick={handleFollowToggle}
+          isLoading={resolvedLoading}
           isSelf={resolvedSelf}
         />
       </div>

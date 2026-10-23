@@ -61,6 +61,37 @@ assets, and network traffic. Ensure no unexpected external network requests are
 emitted. Keep temporary screenshots, browser reports, and logs outside authored
 source.
 
+## Completed in Stage 4C (Social Graph: Follow/Unfollow Mutation & Lists)
+
+- **Optimistic Follow/Unfollow Mutation Hook (`src/features/profile/use-follow-toggle.ts`)**:
+  - `useFollowToggle({ username, isFollowing, followersCount })`: TanStack Query mutation hook managing `POST /api/follow/{username}` (follow) and `DELETE /api/follow/{username}` (unfollow).
+  - Optimistic UI: cancels outgoing target profile queries, snapshots previous state, and immediately updates `queryKeys.public.userProfile(username)` (`isFollowing = !isFollowing`, `followersCount` incremented/decremented).
+  - Rollback on failure: restores previous profile cache snapshot on network failure.
+  - Invalidation: invalidates target profile cache and private feed queries (`["private", sessionId, "feed"]`) on success.
+  - Built-in guards:
+    - Unauthenticated guard: safely redirects to `/login?returnTo=...` when no token is present without firing network requests.
+    - Self-follow guard: no-op if user attempts to follow themselves.
+    - In-flight debounce guard: prevents duplicate requests while a mutation is pending.
+- **User Network Query Hooks (`src/features/profile/use-user-network.ts`)**:
+  - `useUserFollowers(username)`: queries `GET /api/users/{username}/followers` with query key `["public", "user", username, "followers"]`.
+  - `useUserFollowing(username)`: queries `GET /api/users/{username}/following` with query key `["public", "user", username, "following"]`.
+  - Decodes and normalizes raw user list responses via `normalizeSearchUser`.
+- **User List Dialog Modal (`src/features/profile/components/user-list-dialog.tsx`)**:
+  - Accessible modal dialog built on `Dialog` primitive with backdrop, close button, title ("Followers" or "Following"), and `max-h-[60vh]` scrollable body.
+  - Loading state with 4 `UserRowSkeleton` placeholders.
+  - Error state with `ErrorState` and retry callback.
+  - Empty state with `EmptyState` ("No followers yet" / "Not following anyone yet").
+  - Populated list rendered with `UserRow` items; clicking a user navigates to `/profile/[username]` and closes the modal.
+- **Profile Headers & Pages Wiring**:
+  - `PublicProfileHeader`: integrates `useFollowToggle` on `FollowButton` and exposes clickable Followers/Following buttons (`aria-haspopup="dialog"`).
+  - `ProfileHeader`: exposes clickable Followers/Following buttons (`aria-haspopup="dialog"`) on `/me`.
+  - `PublicProfilePage` (`/profile/[username]`): wires `UserListDialog` to Followers/Following counters.
+  - `MeProfilePage` (`/me`): wires `UserListDialog` to Followers/Following counters.
+- **Unit & Component Test Suites**:
+  - `use-follow-toggle.test.ts`: validates optimistic follow and unfollow, POST/DELETE endpoints, error rollback, unauthenticated redirect with returnTo, self-follow guard, and in-flight debounce protection.
+  - `use-user-network.test.ts`: validates followers/following fetch, normalization, empty username bypass, and error handling.
+  - `user-list-dialog.test.tsx`: validates open/close, skeleton loading, empty state, error state with retry, and user row click navigation callback.
+
 ## Completed in Stage 4B (Public Profile Page & Hooks)
 
 - **Public User Profile Types & Decoder (`src/features/profile/types.ts`)**:
@@ -376,7 +407,7 @@ source.
 
 ## Not implemented
 
-Stages 1, 2, 3, and 4A (Users Search & User Presentation Components) are completed. Stage 4B (Public profile `/profile/[username]`), Stage 4C (Follow/unfollow mutations), and Stages 5+ remain pending: social interactions (like, save, follow), post authoring, comments, and profile editing.
+Stages 1, 2, 3, and 4 (Search, Public Profiles, and Social Graph) are completed. Stage 5 (Like/save interactions and personal post collections), Stage 6 (Post detail and comments), Stage 7 (Create/delete posts and edit profile), and Stage 8 (Integrated acceptance and delivery) remain pending.
 
 The preserved files in `docs/` and `AGENTS.md` supply the project requirements.
 No deployment or backend writes are part of this scaffold.

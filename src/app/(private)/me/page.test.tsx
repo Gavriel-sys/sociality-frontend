@@ -36,23 +36,15 @@ describe("MeProfilePage", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     store = makeStore();
-    queryClient = new QueryClient({
-      defaultOptions: { queries: { retry: false } },
-    });
+    queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     store.dispatch(
-      setSession({
-        token: "test-token",
-        sessionId: "test-session",
-        user: { username: "morgantaylor" },
-      }),
+      setSession({ token: "test-token", sessionId: "test-session", user: { username: "morgantaylor" } }),
     );
   });
 
   function renderWithProviders(ui: ReactNode) {
     return render(
-      <Provider store={store}>
-        <QueryClientProvider client={queryClient}>{ui}</QueryClientProvider>
-      </Provider>,
+      <Provider store={store}><QueryClientProvider client={queryClient}>{ui}</QueryClientProvider></Provider>,
     );
   }
 
@@ -128,5 +120,22 @@ describe("MeProfilePage", () => {
     fireEvent.click(postsTab);
 
     expect(screen.getByText("No posts yet")).toBeInTheDocument();
+  });
+
+  it("opens followers dialog when followers counter is clicked", () => {
+    vi.spyOn(useMyProfileModule, "useMyProfile").mockReturnValue({
+      profile: mockProfile,
+      isLoading: false,
+      isError: false,
+      error: null,
+      refetch: vi.fn(),
+    });
+
+    renderWithProviders(<MeProfilePage />);
+
+    const followersBtn = screen.getByRole("button", { name: "500 Followers" });
+    fireEvent.click(followersBtn);
+
+    expect(screen.getByRole("heading", { level: 2, name: "Followers" })).toBeInTheDocument();
   });
 });

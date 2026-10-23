@@ -118,4 +118,14 @@ describe("PublicProfilePage", () => {
     expect(screen.getByText("No posts yet")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Edit profile" })).toBeInTheDocument();
   });
+
+  it("opens followers dialog when followers counter button is clicked", () => {
+    mockHooksState({ profile: mockProfile, posts: [] });
+    renderWithProviders(<PublicProfilePage params={{ username: "alex" }} />);
+
+    const followersBtn = screen.getByRole("button", { name: /250 Followers/i });
+    fireEvent.click(followersBtn);
+
+    expect(screen.getByRole("heading", { level: 2, name: "Followers" })).toBeInTheDocument();
+  });
 });
