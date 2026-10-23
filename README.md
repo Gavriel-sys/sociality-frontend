@@ -61,6 +61,49 @@ assets, and network traffic. Ensure no unexpected external network requests are
 emitted. Keep temporary screenshots, browser reports, and logs outside authored
 source.
 
+## Completed in Stage 4A (Users Search & User Presentation Components)
+
+- **Search User Types & Decoder (`src/features/users/types.ts`)**:
+  - `SearchUser` domain interface: `id` (string | number), `name`, `username`, optional `avatarUrl`, optional `bio`.
+  - `SearchUsersResponse` interface: `users` (readonly `SearchUser[]`), `total`, optional `page`, optional `limit`.
+  - `normalizeSearchUser(raw: unknown): SearchUser`: defensively normalizes varying response payloads, envelopes (`user`, `author`), key variants (`userId`, `fullName`, `handle`, `avatar`/`image`, `biography`), with strict string fallbacks.
+  - `normalizeSearchUsersResponse(raw: unknown): SearchUsersResponse`: handles arrays directly or nested paginated response envelopes (`data`, `users`, `results`, `items`).
+- **Debounced User Search Query Hook (`src/features/users/use-search-users.ts`)**:
+  - `useSearchUsers(query, page = 1, limit = 20, debounceDelayMs = 300)` TanStack Query hook managing paginated user search queries.
+  - 300ms internal query debouncing: suppresses premature network queries while user is actively typing; immediately clears on empty input.
+  - Public directory endpoint: queries `GET /api/users/search?q=${encodeURIComponent(trimmedQuery)}&page=${page}&limit=${limit}`.
+  - Enabled guard: query runs only when trimmed query length >= 1; returns empty result set (`users: []`, `total: 0`, `isLoading: false`, `isError: false`) when query is blank without triggering any network call.
+  - Query keys: uses `queryKeys.public.search({ query: trimmedQuery, page, limit })`.
+  - Optional auth token: safely passes bearer token if user is signed in, or queries publicly as guest.
+- **Reusable UserRow Component (`src/features/users/components/user-row.tsx`)**:
+  - Renders user circular avatar (`Avatar size="md"` 40x40px) with name/initials fallback.
+  - Display name bold (`#FDFDFD`), `@username` (`#A4A7AE`), and optional bio preview.
+  - Accessible link to `/profile/${user.username}` with >= 44x44px touch target.
+  - Hover background `#141820`, rounded-xl border border-transparent `hover:border-[#1F242F]`.
+- **Accessible UserRowSkeleton Component (`src/features/users/components/user-row-skeleton.tsx`)**:
+  - Avatar circle skeleton, display name bar, username bar, bio line.
+  - Accessible attributes: `role="status"`, `aria-busy="true"`, accessible text "Loading user...".
+- **Responsive Users Search Page (`src/app/users/search/page.tsx`)**:
+  - Public page accessible to both guests and authenticated users.
+  - Responsive design container matching Figma specs (`max-w-[361px] md:max-w-[600px] mx-auto px-4 pt-6 space-y-6 pb-32` on `#000000` canvas).
+  - Top `Header` with search value sync and user fallback.
+  - Dedicated search input with magnifying glass, clear button (`CloseIcon`), and full accessible labels.
+  - Comprehensive states:
+    - Initial guidance state: "Find creators & friends" prompt when search query is empty.
+    - Loading state: renders 4 `UserRowSkeleton` placeholders.
+    - Error state: `ErrorState` with retry button.
+    - Empty state: `EmptyState` ("No users found") when search produces 0 results.
+    - Results list: renders list of `UserRow` components with pagination controls when total > limit.
+  - Suspense boundary wrapping `useSearchParams()` content for SSR and static export compliance.
+  - Bottom `FloatingNav`.
+- **Top Header Search Form Sync (`src/components/layout/header.tsx`)**:
+  - Search input wrapped in accessible form landmark (`role="search"`).
+  - Submitting or pressing Enter navigates directly to `/users/search?q=${encodeURIComponent(trimmed)}` when query is non-empty.
+- **Unit & Component Test Suites**:
+  - `use-search-users.test.ts`: validates empty query without fetch, debounced fetch execution, pagination parameters, token propagation when authenticated, and error handling.
+  - `user-row.test.tsx`: validates name/username/bio rendering, avatar fallback, `/profile/[username]` link target, username fallback when name is blank, and skeleton accessibility.
+  - `users/search/page.test.tsx`: validates initial prompt when query empty, 4 loading skeletons, empty state on 0 results, user list rendering on results, error state with retry callback, clear button action, and header search form navigation.
+
 ## Completed in Stage 3C (Infinite Explore Hook, Explore Page /explore & Root Navigation Flow)
 
 - **Infinite Explore Query Hook (`src/features/explore/use-infinite-explore.ts`)**:
@@ -304,7 +347,7 @@ source.
 
 ## Not implemented
 
-Stage 2 (Authentication, Session Lifecycle, and Read-Only /me Profile) is completed. Stage 3+ remains pending: feed, Explore, social interactions (like, save, follow), post authoring, comments, and profile editing.
+Stages 1, 2, 3, and 4A (Users Search & User Presentation Components) are completed. Stage 4B (Public profile `/profile/[username]`), Stage 4C (Follow/unfollow mutations), and Stages 5+ remain pending: social interactions (like, save, follow), post authoring, comments, and profile editing.
 
 The preserved files in `docs/` and `AGENTS.md` supply the project requirements.
 No deployment or backend writes are part of this scaffold.

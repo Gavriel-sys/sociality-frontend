@@ -1,8 +1,9 @@
 "use client";
 
-import { useContext } from "react";
+import { useContext, useState } from "react";
 import type { HTMLAttributes } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { ReactReduxContext } from "react-redux";
 import { Avatar } from "@/components/ui/avatar";
 import { SearchIcon } from "@/components/ui/icons";
@@ -21,6 +22,14 @@ interface AvatarLinkProps {
   readonly isAuthenticated: boolean;
   readonly userAvatarSrc?: string;
   readonly userFallback?: string;
+}
+
+function useSafeRouter() {
+  try {
+    return useRouter();
+  } catch {
+    return null;
+  }
 }
 
 function AvatarLink({ isAuthenticated, userAvatarSrc, userFallback }: AvatarLinkProps) {
@@ -62,6 +71,29 @@ export function Header({
   className,
   ...props
 }: Readonly<HeaderProps>) {
+  const router = useSafeRouter();
+  const [internalQuery, setInternalQuery] = useState(searchValue);
+  const [prevSearchValue, setPrevSearchValue] = useState(searchValue);
+
+  if (searchValue !== prevSearchValue) {
+    setPrevSearchValue(searchValue);
+    setInternalQuery(searchValue);
+  }
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const nextVal = e.target.value;
+    setInternalQuery(nextVal);
+    onSearchChange?.(nextVal);
+  };
+
+  const handleSearchSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    const trimmed = internalQuery.trim();
+    if (trimmed.length > 0) {
+      router?.push(`/users/search?q=${encodeURIComponent(trimmed)}`);
+    }
+  };
+
   return (
     <header
       role="banner"
@@ -71,31 +103,31 @@ export function Header({
       )}
       {...props}
     >
-      <div className="mx-auto flex h-full max-w-7xl items-center justify-between gap-4 px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center gap-3">
+      <div className="mx-auto flex h-full max-w-7xl items-center justify-between gap-2 sm:gap-4 px-3 sm:px-6 lg:px-8">
+        <div className="flex shrink-0 items-center gap-2 sm:gap-3">
           <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-[#7F51F9] to-[#6936F2] shadow-sm">
             <svg width="20" height="20" viewBox="0 0 32 32" fill="none" className="text-[#FDFDFD]" aria-hidden="true">
               <path d="M22 11C20.5 9.5 18 9 16 9C12.5 9 10 11.2 10 14C10 18.5 22 16.5 22 20.5C22 23 19.5 24 16 24C13.5 24 11.2 23 9.8 21.5" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
             </svg>
           </div>
-          <span className="text-lg font-bold tracking-tight text-[#FDFDFD]">Sociality</span>
+          <span className="hidden sm:inline text-lg font-bold tracking-tight text-[#FDFDFD]">Sociality</span>
         </div>
 
-        <div className="flex flex-1 max-w-md items-center">
-          <div className="relative w-full">
+        <div className="flex flex-1 min-w-0 max-w-md items-center">
+          <form onSubmit={handleSearchSubmit} role="search" className="relative w-full min-w-0">
             <SearchIcon className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-[#A4A7AE]" />
             <input
               type="search"
               placeholder="Search creators, posts..."
-              value={searchValue}
-              onChange={(e) => onSearchChange?.(e.target.value)}
+              value={internalQuery}
+              onChange={handleInputChange}
               aria-label="Search"
-              className="h-10 w-full rounded-full border border-[#1F242F] bg-[#0A0D12] pl-10 pr-4 text-xs sm:text-sm text-[#FDFDFD] placeholder-[#A4A7AE]/60 outline-none transition-colors focus-visible:ring-2 focus-visible:ring-[#7F51F9]"
+              className="h-10 w-full min-w-0 rounded-full border border-[#1F242F] bg-[#0A0D12] pl-10 pr-4 text-xs sm:text-sm text-[#FDFDFD] placeholder-[#A4A7AE]/60 outline-none transition-colors focus-visible:ring-2 focus-visible:ring-[#7F51F9]"
             />
-          </div>
+          </form>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex shrink-0 items-center gap-2 sm:gap-3">
           <HeaderAvatarLink userAvatarSrc={userAvatarSrc} userFallback={userFallback} isAuthenticated={isAuthenticated} />
         </div>
       </div>
