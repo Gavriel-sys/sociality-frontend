@@ -61,6 +61,35 @@ assets, and network traffic. Ensure no unexpected external network requests are
 emitted. Keep temporary screenshots, browser reports, and logs outside authored
 source.
 
+## Completed in Stage 4B (Public Profile Page & Hooks)
+
+- **Public User Profile Types & Decoder (`src/features/profile/types.ts`)**:
+  - `PublicUserProfile` interface extending `UserProfile`: adds `isFollowing: boolean`.
+  - `normalizePublicUserProfile(raw: unknown): PublicUserProfile`: robustly parses nested envelopes (`data`, `user`), counter fallbacks, and boolean following indicators (`isFollowing`, `following`, `is_following`).
+- **Public Profile & User Content Hooks (`src/features/profile/public-profile.ts`)**:
+  - `usePublicProfile(username: string)`: TanStack Query hook calling `GET /api/users/{username}` with `queryKeys.public.userProfile(username)`, enabled when username is non-empty, optional auth bearer token support.
+  - `useUserPosts(username: string)`: queries `GET /api/users/{username}/posts` with `["public", "user", username, "posts"]`, decoding authored posts via `normalizePost`.
+  - `useUserLikes(username: string)`: queries `GET /api/users/{username}/likes` with `["public", "user", username, "likes"]`, decoding liked posts via `normalizePost`.
+  - `normalizePostList(raw: unknown)`: handles arrays and envelopes (`posts`, `likes`, `data`).
+- **FollowButton Presentation Component (`src/features/profile/components/follow-button.tsx`)**:
+  - Action pill button with touch target >= 44x44px.
+  - States: "Follow" (primary purple `#6936F2`), "Following" (dark outline, hover: "Unfollow"), and "Edit profile" (for self profile).
+  - Handles `onClick`, loading spinner, and keyboard focus indicators.
+- **PublicProfileHeader Component (`src/features/profile/components/public-profile-header.tsx`)**:
+  - Figma-compliant desktop (80x80px) and mobile (64x64px) circular avatar.
+  - Display name bold, `@username`, bio preview or fallback.
+  - Stats counters row: Posts count, Followers count, Following count.
+  - Renders `FollowButton` in action slot with automatic or explicit `isSelf` detection.
+- **Responsive Public Profile Page (`src/app/profile/[username]/page.tsx`)**:
+  - Route: `/profile/[username]` accessible to guests and signed-in users.
+  - Container: `max-w-[361px] md:max-w-[812px] mx-auto px-4 pt-6 space-y-6 pb-32` on dark canvas.
+  - Top `Header` with user fallback.
+  - Accessible `PublicProfileSkeleton` for loading states.
+  - Error and 404 state via `ErrorState` with "Back to search" navigation to `/users/search`.
+  - Content tabs for `Posts` (default) and `Likes` with `PostCard` feeds and dedicated `EmptyState` fallbacks ("No posts yet" / "No liked posts yet").
+  - Seamless Next.js 15+ async `use(params)` unwrapping.
+  - Bottom `FloatingNav`.
+
 ## Completed in Stage 4A (Users Search & User Presentation Components)
 
 - **Search User Types & Decoder (`src/features/users/types.ts`)**:

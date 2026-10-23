@@ -11,6 +11,10 @@ export interface UserProfile {
   readonly followingCount: number;
 }
 
+export interface PublicUserProfile extends UserProfile {
+  readonly isFollowing: boolean;
+}
+
 function resolveNestedSource(candidate: Record<string, unknown>): Record<string, unknown> {
   if (candidate.data && typeof candidate.data === "object") {
     return candidate.data as Record<string, unknown>;
@@ -58,5 +62,31 @@ export function normalizeUserProfile(raw: unknown): UserProfile {
     postsCount: resolveCounter(source.postsCount, counts.posts),
     followersCount: resolveCounter(source.followersCount, counts.followers),
     followingCount: resolveCounter(source.followingCount, counts.following),
+  };
+}
+
+export function normalizePublicUserProfile(raw: unknown): PublicUserProfile {
+  const base = normalizeUserProfile(raw);
+  const envelope = raw as Record<string, unknown>;
+  const source = resolveNestedSource(envelope);
+
+  const rawFollowing =
+    source.isFollowing ??
+    source.following ??
+    source.is_following ??
+    envelope.isFollowing ??
+    envelope.following ??
+    envelope.is_following;
+
+  const isFollowing =
+    typeof rawFollowing === "boolean"
+      ? rawFollowing
+      : typeof rawFollowing === "string"
+        ? rawFollowing.toLowerCase() === "true" || rawFollowing === "1"
+        : rawFollowing === 1;
+
+  return {
+    ...base,
+    isFollowing,
   };
 }
