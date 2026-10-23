@@ -61,6 +61,35 @@ assets, and network traffic. Ensure no unexpected external network requests are
 emitted. Keep temporary screenshots, browser reports, and logs outside authored
 source.
 
+## Completed in Stage 3C (Infinite Explore Hook, Explore Page /explore & Root Navigation Flow)
+
+- **Infinite Explore Query Hook (`src/features/explore/use-infinite-explore.ts`)**:
+  - `useInfiniteExplore()` TanStack Query hook managing paginated explore posts from `GET /api/posts?page=X&limit=10`.
+  - Session-scoped query key: uses `sessionId ? ["private", sessionId, "explore"] : ["private", "unauthenticated", "explore"]`, preventing cross-account cache pollution while ensuring security tokens never enter cache keys.
+  - Enabled guard: query runs strictly when authenticated (`token` and `sessionId` present).
+  - Normalization: maps page responses through `normalizePost` with flexible envelope support (raw arrays, `{ posts: [...] }`, or `{ data: [...] }`).
+  - Post deduplication: aggregates cross-page posts using an order-preserving Map keyed by `post.id`, guaranteeing zero duplicate React keys.
+  - Pagination calculation: `getNextPageParam` evaluates fetched page item count against `limit: 10`, cleanly terminating pagination when `lastPage.length < 10` and otherwise requesting `allPages.length + 1`.
+  - Return signature: `{ posts, isLoading, isError, error, isFetchingNextPage, hasNextPage, fetchNextPage, refetch }`.
+- **Protected Explore Page (`src/app/(private)/explore/page.tsx`)**:
+  - Wrapped with `<AuthGuard>` to redirect unauthenticated visits to `/login?returnTo=%2Fexplore`.
+  - Responsive layout strictly matching the design container (Desktop max 600px `max-w-[600px]`, Mobile max 361px `max-w-[361px]`, `#000000` background, `pb-32` bottom padding for floating navigation).
+  - Top `Header` with current user fallback and search input; accessible `h1` heading "Explore".
+  - Comprehensive feedback lifecycle:
+    - Loading state: renders 3 `PostCardSkeleton` placeholders with accessible `role="status"` and `aria-label="Loading explore posts"`.
+    - Error state: renders `ErrorState` with retry button invoking `refetch()`.
+    - Empty state: renders `EmptyState` ("No explore posts available") with community guidance.
+    - Loaded list: renders vertically stacked `PostCard` items (`space-y-6`).
+    - Pagination affordance: renders centered "Load more posts" button when `hasNextPage` (displaying spinner during `isFetchingNextPage`) and "You're all caught up!" text once end of stream is reached.
+  - Bottom `FloatingNav` integration.
+- **Root Route Navigation Flow (`src/app/page.tsx`)**:
+  - Automatic authenticated redirect: monitors Redux `auth.status` and invokes `router.replace("/feed")` when authenticated.
+  - Unauthenticated guest showcase: preserves full design system showcase / landing page for unauthenticated visitors and guests.
+- **Unit & Component Test Suites**:
+  - `use-infinite-explore.test.ts`: validates unauthenticated disabled state, first page fetch and normalization, next page appending, cross-page post ID deduplication, and API error response handling.
+  - `explore/page.test.tsx`: validates 3-skeleton loading state, error state with retry button trigger, empty state rendering, populated explore card rendering with end-of-stream message, and "Load more posts" pagination button triggering `fetchNextPage`.
+  - `app/page.test.tsx`: validates automatic redirect to `/feed` when authenticated, as well as preserving showcase rendering when unauthenticated or guest.
+
 ## Completed in Stage 3B (Infinite Query Hook & Feed Page /feed)
 
 - **Infinite Feed Query Hook (`src/features/feed/use-infinite-feed.ts`)**:

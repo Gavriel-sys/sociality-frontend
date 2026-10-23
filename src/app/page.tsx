@@ -1,6 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useContext, useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import { ReactReduxContext } from "react-redux";
 import { Alert } from "@/components/ui/alert";
 import { Avatar } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
@@ -15,6 +17,20 @@ import { ErrorState } from "@/components/feedback/error-state";
 import { LoadingState } from "@/components/feedback/loading-state";
 import { FloatingNav, type NavItemKey } from "@/components/layout/floating-nav";
 import { Header } from "@/components/layout/header";
+import { useAppSelector } from "@/lib/store/hooks";
+
+function AuthRedirectWatcher() {
+  const router = useRouter();
+  const status = useAppSelector((state) => state.auth.status);
+
+  useEffect(() => {
+    if (status === "authenticated") {
+      router.replace("/feed");
+    }
+  }, [status, router]);
+
+  return null;
+}
 
 export default function ShowcasePage() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -22,9 +38,11 @@ export default function ShowcasePage() {
   const [activeNav, setActiveNav] = useState<NavItemKey>("home");
   const [searchVal, setSearchVal] = useState("");
   const [retryCount, setRetryCount] = useState(0);
+  const reduxContext = useContext(ReactReduxContext);
 
   return (
     <div className="min-h-screen bg-black text-[#FDFDFD] pb-32">
+      {reduxContext ? <AuthRedirectWatcher /> : null}
       <Header searchValue={searchVal} onSearchChange={setSearchVal} />
       <main className="mx-auto max-w-5xl px-4 py-8 sm:px-6 lg:px-8 space-y-10">
         <section className="space-y-2 border-b border-[#1F242F] pb-6">
@@ -83,15 +101,10 @@ export default function ShowcasePage() {
         <section aria-labelledby="avatars-heading" className="space-y-4">
           <h2 id="avatars-heading" className="text-lg font-semibold text-[#FDFDFD]">Avatars & Skeletons</h2>
           <div className="flex items-center gap-4">
-            <Avatar size="sm" fallback="SM" />
-            <Avatar size="md" fallback="MD" />
-            <Avatar size="lg" fallback="LG" />
-            <Avatar size="xl" fallback="XL" />
+            <Avatar size="sm" fallback="SM" /><Avatar size="md" fallback="MD" /><Avatar size="lg" fallback="LG" /><Avatar size="xl" fallback="XL" />
           </div>
           <div className="space-y-2 max-w-md pt-2">
-            <Skeleton className="h-4 w-3/4" />
-            <Skeleton className="h-4 w-1/2" />
-            <Skeleton className="h-20 w-full rounded-xl" />
+            <Skeleton className="h-4 w-3/4" /><Skeleton className="h-4 w-1/2" /><Skeleton className="h-20 w-full rounded-xl" />
           </div>
         </section>
 
@@ -123,9 +136,7 @@ export default function ShowcasePage() {
 
       <Sheet isOpen={isSheetOpen} onClose={() => setIsSheetOpen(false)} title="Mobile Bottom Sheet" description="Pinned bottom sheet container with handle indicator.">
         <p className="text-sm text-[#A4A7AE]">This bottom sheet provides touch-friendly mobile drawer experience.</p>
-        <div className="mt-4 flex justify-end">
-          <Button onClick={() => setIsSheetOpen(false)}>Done</Button>
-        </div>
+        <div className="mt-4 flex justify-end"><Button onClick={() => setIsSheetOpen(false)}>Done</Button></div>
       </Sheet>
 
       <FloatingNav activeKey={activeNav} onSelectKey={setActiveNav} />
