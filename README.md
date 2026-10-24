@@ -61,6 +61,43 @@ assets, and network traffic. Ensure no unexpected external network requests are
 emitted. Keep temporary screenshots, browser reports, and logs outside authored
 source.
 
+## Completed in Stage 5C (Responsive Post Detail & Comments View — Desktop Modal & Mobile Sheet)
+
+- **Desktop 2-Column Detail Modal (`src/features/comments/components/post-comments-modal.tsx`)**:
+  - Implements 2-column detail modal layout (`md:max-w-4xl`, `#0A0D12` border `#1F242F`).
+  - Left column: 1:1 aspect ratio square media presentation (`aspect-square bg-black`) with image error fallback.
+  - Right column:
+    - Post author header with avatar, name, username, relative date, and caption snippet.
+    - Scrollable comments list container (`max-h-[50vh] overflow-y-auto`).
+    - Loading state: 3 `CommentRowSkeleton` placeholders.
+    - Error state: `ErrorState` with retry button invoking `refetch`.
+    - Empty state: `EmptyState` ("No comments yet", "Be the first to share your thoughts!").
+    - Loaded state: list of `CommentRow` items.
+    - Bottom sticky `CommentInputForm` wired to `useAddComment`.
+  - Accessible dialog semantics: focus trapped, Escape key dismiss, backdrop dismiss, and close button.
+
+- **Mobile Bottom Sheet Drawer (`src/features/comments/components/post-comments-sheet.tsx`)**:
+  - Implements mobile bottom sheet using `Sheet` primitive (`src/components/ui/sheet.tsx`).
+  - Top visual drag handle and header with title "Comments" and accessible close button.
+  - Scrollable comments list (`max-h-[50vh] overflow-y-auto`) with loading skeletons, error state with retry, empty state, and loaded comments.
+  - Sticky bottom `CommentInputForm` for submitting comments.
+
+- **Responsive Comments Coordinator (`src/features/comments/components/post-comments-dialog.tsx`)**:
+  - Coordinates desktop modal (`PostCommentsModal`) vs mobile sheet (`PostCommentsSheet`) based on viewport media query (`(min-width: 768px)`).
+  - Integrates `usePostComments(post.id)` query hook and `useAddComment(post.id)` mutation hook.
+  - Passes query and mutation states seamlessly down to the active responsive view.
+
+- **PostCard Integration (`src/features/posts/components/post-card.tsx`)**:
+  - Wires comment button (`MessageCircleIcon`) to open `PostCommentsDialog` by default when `onComment` is omitted.
+  - Preserves custom `onComment` callback precedence when explicitly provided via props.
+  - Maintains strict Clean Code invariant (<150 lines per file).
+
+- **Stage 5 Completion**:
+  - Stage 5 interaction and discussion suite complete:
+    - Stage 5A: Post like and save optimistic mutations with cache reconciliation.
+    - Stage 5B: Comments data models, query/mutation hooks, and comment row components.
+    - Stage 5C: Responsive post detail & comments view (desktop 2-col modal & mobile sheet).
+
 ## Completed in Stage 5B (Comments Data Models, Hooks & Comment Row Components)
 
 - **Domain Models & Normalization (`src/features/comments/types.ts`)**:
