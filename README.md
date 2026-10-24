@@ -61,6 +61,29 @@ assets, and network traffic. Ensure no unexpected external network requests are
 emitted. Keep temporary screenshots, browser reports, and logs outside authored
 source.
 
+## Completed in Stage 6A (Shareable Post Detail Route & Single Post Query)
+
+- **Single Post Detail Query Hook (`src/features/posts/use-post-detail.ts`)**:
+  - `usePostDetail(postId)`: TanStack Query hook querying `GET /api/posts/{id}`.
+  - Normalized query key: `["public", "post", String(postId)] as const`.
+  - Automatically attaches session Bearer token from Redux auth state when authenticated, with guest fallback when unauthenticated.
+  - Runtime response validation and decoding with `normalizePost`, transforming raw API payload into strongly-typed `Post`.
+  - Guarded execution: query is enabled only when `postId` is non-empty.
+- **Standalone Post Detail Card View (`src/features/posts/components/post-detail-view.tsx`)**:
+  - Full-featured post presentation supporting both desktop and mobile viewports:
+    - Desktop (`md:`): 2-column card (`md:max-w-4xl`) with 1:1 media presentation on left; author header, caption, scrollable comments list, and sticky bottom comment input form on right.
+    - Mobile: stacked single-column card with author header, square media, action bar with like/save/comment counts, caption, scrollable comments stream, and comment input form.
+  - Integrates optimistic post mutations via `usePostLikeToggle` and `usePostSaveToggle`.
+  - Real-time discussion stream integrated with `usePostComments` and `useAddComment`.
+- **Shareable Standalone Route (`src/app/posts/[id]/page.tsx`)**:
+  - Publicly accessible permalink `/posts/[id]` compatible with guest sharing and authenticated browsing.
+  - Integrated with global application shell: `<Header />` with authenticated fallback, and `<FloatingNav />`.
+  - Async route parameter resolution supporting Next.js 15+ `params: Promise<{ id: string }>` wrapped in `<Suspense>`.
+  - Comprehensive states:
+    - Loading: `<PostCardSkeleton />` with accessible status indicator (`aria-label="Loading post"`).
+    - 404 / Error: `<ErrorState />` with "Post not found", descriptive error message, and "Explore posts" retry action navigating to `/explore`.
+    - Loaded: renders responsive `<PostDetailView />`.
+
 ## Completed in Stage 5C (Responsive Post Detail & Comments View — Desktop Modal & Mobile Sheet)
 
 - **Desktop 2-Column Detail Modal (`src/features/comments/components/post-comments-modal.tsx`)**:
@@ -505,7 +528,7 @@ source.
 
 ## Not implemented
 
-Stages 1, 2, 3, 4 (Search, Public Profiles, and Social Graph), and 5A (Post Like & Save Mutations) are completed. Stage 5B/5C (Liked-by list, My Likes/Saved collections), Stage 6 (Post detail and comments), Stage 7 (Create/delete posts and edit profile), and Stage 8 (Integrated acceptance and delivery) remain pending.
+Stages 1, 2, 3, 4 (Search, Public Profiles, and Social Graph), 5 (Like/Save Mutations, Comments Models & Responsive Dialog), and 6A (Shareable Post Detail Route & Single Post Query) are completed. Stage 6B/6C (Comments thread enhancements / share actions), Stage 7 (Create/delete posts and edit profile), and Stage 8 (Integrated acceptance and delivery) remain pending.
 
 The preserved files in `docs/` and `AGENTS.md` supply the project requirements.
 No deployment or backend writes are part of this scaffold.
