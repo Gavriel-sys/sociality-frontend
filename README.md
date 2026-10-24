@@ -61,6 +61,38 @@ assets, and network traffic. Ensure no unexpected external network requests are
 emitted. Keep temporary screenshots, browser reports, and logs outside authored
 source.
 
+## Completed in Stage 5A (Post Like & Save Mutations with Optimistic UI)
+
+- **Query Cache Updater Helper (`src/features/posts/post-cache-utils.ts`)**:
+  - `updatePostInCache(queryClient, postId, updater)`: recursively and safely updates target post across all TanStack Query cache structures, including infinite pages (`InfiniteData<readonly Post[]>`, `{ posts: Post[] }`, `{ data: Post[] }`), flat post arrays (`readonly Post[]`), and single post records.
+  - `findPostInCache(queryClient, postId)`: finds a cached post across active query cache data.
+  - `snapshotPostQueries(queryClient)` & `restorePostQueries(queryClient, snapshot)`: captures multi-query snapshots and rolls back query cache accurately on network errors.
+  - `invalidatePostQueries(queryClient)`: invalidates active post queries upon mutation settlement.
+  - Safe operations on unpopulated caches without throwing.
+
+- **Optimistic Post Like Mutation Hook (`src/features/posts/use-post-like-toggle.ts`)**:
+  - `usePostLikeToggle(post)`: manages `POST /api/posts/{id}/like` and `DELETE /api/posts/{id}/like`.
+  - Optimistic UI: immediately flips `isLiked` and increments/decrements `likesCount` across TanStack Query cache (`feed`, `explore`, etc.).
+  - Rollback on failure: restores previous cache snapshot if network fails.
+  - Built-in guards:
+    - Unauthenticated guard: safely redirects to `/login?returnTo=...` when guest attempts to like.
+    - In-flight debounce guard: prevents duplicate concurrent requests.
+  - Settlement: invalidates post queries on settlement.
+
+- **Optimistic Post Save Mutation Hook (`src/features/posts/use-post-save-toggle.ts`)**:
+  - `usePostSaveToggle(post)`: manages `POST /api/posts/{id}/save` and `DELETE /api/posts/{id}/save`.
+  - Optimistic UI: immediately flips `isSaved` across TanStack Query cache.
+  - Rollback on failure: restores previous cache snapshot if network fails.
+  - Built-in guards:
+    - Unauthenticated guard: safely redirects to `/login?returnTo=...` when guest attempts to save.
+    - In-flight debounce guard: prevents duplicate concurrent requests.
+  - Settlement: invalidates post queries on settlement.
+
+- **PostCard Integration (`src/features/posts/components/post-card.tsx`)**:
+  - Integrated `usePostLikeToggle` and `usePostSaveToggle` as default button handlers when `onLike` / `onSave` are omitted.
+  - Preserves custom callback precedence when props are explicitly provided (`onLike ?? likeToggle.toggleLike`, `onSave ?? saveToggle.toggleSave`).
+  - Idempotent and accessible action buttons with updated labels (`Like post` / `Unlike post`, `Save post` / `Remove from saved`).
+
 ## Completed in Stage 4C (Social Graph: Follow/Unfollow Mutation & Lists)
 
 - **Optimistic Follow/Unfollow Mutation Hook (`src/features/profile/use-follow-toggle.ts`)**:
@@ -407,7 +439,7 @@ source.
 
 ## Not implemented
 
-Stages 1, 2, 3, and 4 (Search, Public Profiles, and Social Graph) are completed. Stage 5 (Like/save interactions and personal post collections), Stage 6 (Post detail and comments), Stage 7 (Create/delete posts and edit profile), and Stage 8 (Integrated acceptance and delivery) remain pending.
+Stages 1, 2, 3, 4 (Search, Public Profiles, and Social Graph), and 5A (Post Like & Save Mutations) are completed. Stage 5B/5C (Liked-by list, My Likes/Saved collections), Stage 6 (Post detail and comments), Stage 7 (Create/delete posts and edit profile), and Stage 8 (Integrated acceptance and delivery) remain pending.
 
 The preserved files in `docs/` and `AGENTS.md` supply the project requirements.
 No deployment or backend writes are part of this scaffold.
