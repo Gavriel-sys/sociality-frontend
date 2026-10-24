@@ -61,6 +61,35 @@ assets, and network traffic. Ensure no unexpected external network requests are
 emitted. Keep temporary screenshots, browser reports, and logs outside authored
 source.
 
+## Completed in Stage 5B (Comments Data Models, Hooks & Comment Row Components)
+
+- **Domain Models & Normalization (`src/features/comments/types.ts`)**:
+  - `CommentAuthor`: author model with `id`, `name`, `username`, and optional `avatarUrl`.
+  - `Comment`: comment model with `id`, `content`, `createdAt`, and `author`.
+  - `commentInputSchema`: Zod schema validating trimmed comment strings (1–500 characters) with explicit error messages.
+  - `postCommentsQueryKey(postId)`: standardized public query key `["public", "post", String(postId), "comments"] as const`.
+  - `normalizeComment(raw)`: resilient decoder resolving author/user variations, content/text/message aliases, date formats, and envelope wrappers (`comment`, `data`).
+  - `normalizeCommentList(raw)`: decodes comment collections from raw arrays, `{ comments: [...] }`, `{ data: [...] }`, or `{ data: { comments: [...] } }`.
+
+- **Comments Query Hook (`src/features/comments/use-post-comments.ts`)**:
+  - `usePostComments(postId)`: TanStack Query hook fetching `GET /api/posts/{postId}/comments`.
+  - Attaches optional Bearer token when authenticated for personalized/contextual views.
+  - Guards against empty or whitespace `postId` without dispatching requests.
+  - Returns typed `{ comments, isLoading, isError, error, refetch }`.
+
+- **Optimistic Comment Mutation Hook (`src/features/comments/use-add-comment.ts`)**:
+  - `useAddComment(postId)`: TanStack Query mutation hook calling `POST /api/posts/{postId}/comments` with `{ content }`.
+  - Optimistic UI: cancels outgoing comments queries, snapshots current comments list, generates optimistic `Comment` using active user identity from Redux, immediately updates comments query cache, and increments post `commentsCount` via `updatePostInCache`.
+  - Error rollback: restores snapshot comments list and decrements post `commentsCount` in cache if the mutation fails.
+  - Invalidation: invalidates both comment query and post queries upon settlement.
+  - Unauthenticated guard: redirects unauthenticated users to `/login?returnTo=...` without dispatching network calls.
+  - In-flight debounce guard: prevents duplicate submissions during active mutation.
+
+- **Comment Row & Form Components (`src/features/comments/components/`)**:
+  - `CommentRow`: displays author avatar (`size="sm"`, 32x32px) linking to `/profile/[username]`, bold author username `#FDFDFD`, relative time `formatRelativeTime(createdAt)` (`#A4A7AE`), and comment body `#D5D7DA`.
+  - `CommentRowSkeleton`: accessible loading skeleton (`role="status"`, `aria-busy="true"`) matching avatar, author/timestamp, and content bars.
+  - `CommentInputForm`: pill-style input (`#0A0D12` border `#1F242F`, focus ring `#7F51F9`) with right "Post" button (purple `#6936F2`), disabled state when empty or loading, auto-clear on submit, and accessible `aria-label="Add a comment"`.
+
 ## Completed in Stage 5A (Post Like & Save Mutations with Optimistic UI)
 
 - **Query Cache Updater Helper (`src/features/posts/post-cache-utils.ts`)**:
