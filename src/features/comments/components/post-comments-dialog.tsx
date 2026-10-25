@@ -85,6 +85,7 @@ export function PostCommentsDialog({
     <PostCommentsSheet
       isOpen={isOpen}
       onClose={onClose}
+      postId={post.id}
       comments={comments}
       isLoading={isLoading}
       isError={isError}

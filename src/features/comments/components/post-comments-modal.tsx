@@ -103,7 +103,7 @@ export function PostCommentsModal({
             ) : (
               <div className="divide-y divide-[#1F242F]/40" role="list" aria-label="Comments list">
                 {comments.map((comment) => (
-                  <CommentRow key={comment.id} comment={comment} />
+                  <CommentRow key={comment.id} comment={comment} postId={post.id} />
                 ))}
               </div>
             )}

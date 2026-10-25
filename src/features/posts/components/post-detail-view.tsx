@@ -66,12 +66,30 @@ function ActionsRow({ post }: { readonly post: Post }) {
   );
 }
 
-function CommentsStream({ comments, isLoading, isError, onRetry }: { readonly comments: readonly Comment[]; readonly isLoading: boolean; readonly isError: boolean; readonly onRetry: () => void; }) {
+function CommentsStream({
+  comments,
+  postId,
+  isLoading,
+  isError,
+  onRetry,
+}: {
+  readonly comments: readonly Comment[];
+  readonly postId?: string | number;
+  readonly isLoading: boolean;
+  readonly isError: boolean;
+  readonly onRetry: () => void;
+}) {
   if (isLoading) return <div className="space-y-1 py-1" aria-label="Loading comments"><CommentRowSkeleton /><CommentRowSkeleton /><CommentRowSkeleton /></div>;
   if (isError) return <ErrorState title="Failed to load comments" onRetry={onRetry} className="my-2 min-h-[160px] p-4" />;
   const items = Array.isArray(comments) ? comments : [];
   if (items.length === 0) return <EmptyState title="No comments yet" description="Be the first to share your thoughts!" className="my-2 min-h-[160px] p-4" />;
-  return <div className="divide-y divide-[#1F242F]/40" role="list" aria-label="Comments list">{items.map((c) => <CommentRow key={c.id} comment={c} />)}</div>;
+  return (
+    <div className="divide-y divide-[#1F242F]/40" role="list" aria-label="Comments list">
+      {items.map((c) => (
+        <CommentRow key={c.id} comment={c} postId={postId} />
+      ))}
+    </div>
+  );
 }
 
 export function PostDetailView({ post, className }: Readonly<PostDetailViewProps>) {
@@ -93,7 +111,7 @@ export function PostDetailView({ post, className }: Readonly<PostDetailViewProps
         <div className="hidden md:block"><AuthorHeader post={post} /></div>
         <ActionsRow post={post} />
         {post.caption ? <div className="border-b border-[#1F242F] p-4 text-sm text-[#D5D7DA] shrink-0"><span className="font-semibold text-[#FDFDFD]">{post.author.username}</span> {post.caption}</div> : null}
-        <div className="flex-1 overflow-y-auto p-4 space-y-2 max-h-[50vh]"><CommentsStream comments={comments} isLoading={isLoading} isError={isError} onRetry={() => void refetch()} /></div>
+        <div className="flex-1 overflow-y-auto p-4 space-y-2 max-h-[50vh]"><CommentsStream comments={comments} postId={post.id} isLoading={isLoading} isError={isError} onRetry={() => void refetch()} /></div>
         <div className="border-t border-[#1F242F] p-4 bg-[#0A0D12] shrink-0"><CommentInputForm onSubmit={async (content) => { await addComment(content); }} isLoading={isPending} /></div>
       </div>
     </article>

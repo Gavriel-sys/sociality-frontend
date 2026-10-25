@@ -11,6 +11,7 @@ import { CommentRowSkeleton } from "./comment-row-skeleton";
 export interface PostCommentsSheetProps {
   readonly isOpen: boolean;
   readonly onClose: () => void;
+  readonly postId?: string | number;
   readonly comments: readonly Comment[];
   readonly isLoading: boolean;
   readonly isError: boolean;
@@ -22,6 +23,7 @@ export interface PostCommentsSheetProps {
 export function PostCommentsSheet({
   isOpen,
   onClose,
+  postId,
   comments,
   isLoading,
   isError,
@@ -55,7 +57,7 @@ export function PostCommentsSheet({
           ) : (
             <div className="divide-y divide-[#1F242F]/40" role="list" aria-label="Comments list">
               {comments.map((comment) => (
-                <CommentRow key={comment.id} comment={comment} />
+                <CommentRow key={comment.id} comment={comment} postId={postId} />
               ))}
             </div>
           )}

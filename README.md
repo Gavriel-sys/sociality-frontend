@@ -61,6 +61,24 @@ assets, and network traffic. Ensure no unexpected external network requests are
 emitted. Keep temporary screenshots, browser reports, and logs outside authored
 source.
 
+## Completed in Stage 6B (Ownership-Aware Comment Deletion & Stage 6 Completion)
+
+- **Vector SVG UI Icon (`src/components/ui/icons.tsx`)**:
+  - `TrashIcon` & alias `Trash`: 24x24 vector outline icon designed for delete/destructive actions.
+- **Comment Deletion Mutation Hook (`src/features/comments/use-delete-comment.ts`)**:
+  - `useDeleteComment(commentId, postId)`: TanStack Query mutation hook calling `DELETE /api/comments/{id}` with Bearer token authentication.
+  - Optimistic UI update: immediately removes the comment from `postCommentsQueryKey(postId)` and decrements `commentsCount` by 1 on target post via `updatePostInCache`.
+  - Error rollback: restores previous comments snapshot and restores `commentsCount` on mutation error.
+  - In-flight debounce guard: prevents duplicate requests while deletion is executing.
+  - Settle invalidation: invalidates post comments query and post queries across feed and explore caches on completion.
+- **Ownership-Aware Comment Row with Inline Confirmation (`src/features/comments/components/comment-row.tsx`)**:
+  - Ownership check: matches authenticated user with comment author (`authUser.username.toLowerCase() === comment.author.username.toLowerCase()`).
+  - Hides delete button when comment author does not match or when user is unauthenticated / guest.
+  - Inline confirmation UX: clicking the trash icon reveals an inline confirmation prompt (`"Delete?"` confirmation button and `"Cancel"` action) preventing accidental deletions without intrusive modal popups.
+  - Executes deletion via `useDeleteComment` (or optional custom `onDelete` handler) upon confirmation.
+- **Post Context Forwarding (`PostCommentsModal`, `PostCommentsSheet`, `PostCommentsDialog`, `PostDetailView`)**:
+  - Propagates `postId` to all comment streams and `CommentRow` instances across modal, sheet, and standalone page views.
+
 ## Completed in Stage 6A (Shareable Post Detail Route & Single Post Query)
 
 - **Single Post Detail Query Hook (`src/features/posts/use-post-detail.ts`)**:
