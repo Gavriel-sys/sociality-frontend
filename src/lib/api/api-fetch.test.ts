@@ -365,4 +365,39 @@ describe("apiFetch", () => {
       expect(httpError.statusText).toBe("Unauthorized");
     }
   });
+
+  it("passes FormData body directly and omits Content-Type header so fetch can set boundary", async () => {
+    // Arrange
+    const mockData = { id: "post-1", imageUrl: "https://example.com/p.jpg" };
+    const mockFetch = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify(mockData), {
+        status: 201,
+        headers: { "Content-Type": "application/json" },
+      }),
+    );
+    const formData = new FormData();
+    formData.append("caption", "A test multipart post");
+
+    // Act
+    const result = await apiFetch({
+      endpoint: "/api/posts",
+      method: "POST",
+      body: formData,
+      token: "secret-bearer-token",
+      baseUrl: testBaseUrl,
+      fetchFn: mockFetch,
+    });
+
+    // Assert
+    expect(result).toEqual(mockData);
+    expect(mockFetch).toHaveBeenCalledTimes(1);
+    const callArgs = mockFetch.mock.calls[0];
+    expect(callArgs[0]).toBe("https://example.com/api/posts");
+    expect(callArgs[1].method).toBe("POST");
+    expect(callArgs[1].body).toBe(formData);
+    const passedHeaders = callArgs[1].headers as Headers;
+    expect(passedHeaders.has("Content-Type")).toBe(false);
+    expect(passedHeaders.get("Accept")).toBe("application/json");
+    expect(passedHeaders.get("Authorization")).toBe("Bearer secret-bearer-token");
+  });
 });

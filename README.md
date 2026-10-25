@@ -61,6 +61,31 @@ assets, and network traffic. Ensure no unexpected external network requests are
 emitted. Keep temporary screenshots, browser reports, and logs outside authored
 source.
 
+## Completed in Stage 7A (Create Post Modal & Multipart Upload)
+
+- **Multipart FormData Transport Support (`src/lib/api/api-fetch.ts`)**:
+  - Automatically detects `FormData` payload instances via `isFormData(body)`.
+  - Passes `FormData` directly to `fetchClient` as `BodyInit` without serializing to JSON string.
+  - Omission of `Content-Type: application/json` header for multipart bodies, allowing the browser/runtime `fetch` transport to generate the correct multipart boundary.
+  - Preserves standard `Accept: application/json` and `Authorization: Bearer <token>` headers.
+- **Upload Vector SVG Icon (`src/components/ui/icons.tsx`)**:
+  - `UploadIcon`: Clean 24x24 vector outline icon designed for media upload affordances and dropzone triggers.
+- **Post Creation Mutation Hook (`src/features/posts/use-create-post.ts`)**:
+  - `useCreatePost()`: TanStack Query mutation hook calling `POST /api/posts` with `FormData` containing `image` (File/Blob) and optional `caption`.
+  - Normalizes server response payload via `normalizePost` decoder.
+  - On success: invalidates `feed`, `explore`, and `posts` queries across cache using `invalidatePostQueries(queryClient)`.
+  - Unauthenticated guard: redirects unauthenticated guests to `/login` and skips mutating API calls.
+  - In-flight concurrency guard: prevents accidental duplicate in-flight submissions.
+- **Accessible Create Post Modal (`src/features/posts/components/create-post-dialog.tsx`)**:
+  - Accessible modal dialog built on `Dialog` primitive with focus trap, backdrop blur, and Escape key dismissal.
+  - Interactive Drag & Drop zone: dashed border styling, hover/active dragover states, and click-to-browse trigger.
+  - Client-side validation: verifies allowed MIME types (`image/png`, `image/jpeg`, `image/webp`) and enforces 5MB (`5 * 1024 * 1024` bytes) maximum file size limit with accessible alert messaging.
+  - Instant image preview: generates local object URL (`URL.createObjectURL`) with 1:1 aspect ratio square preview card, complete with a "Change photo" affordance and automatic `URL.revokeObjectURL` cleanup on unmount/change/dismissal.
+  - Caption composer: 500-character limit with real-time character counter (`X/500`).
+  - Modal actions: "Cancel" button and prominent primary purple (`#6936F2`) "Share" button with loading spinner and disabled state when no image is selected or mutation is in flight.
+- **Floating Navigation Integration (`src/components/layout/floating-nav.tsx`)**:
+  - Wired prominent center `+` button to open `CreatePostDialog` by default (while preserving custom `onSelectKey` overrides).
+
 ## Completed in Stage 6B (Ownership-Aware Comment Deletion & Stage 6 Completion)
 
 - **Vector SVG UI Icon (`src/components/ui/icons.tsx`)**:

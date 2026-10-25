@@ -1,8 +1,9 @@
 "use client";
 
-import type { HTMLAttributes } from "react";
+import { useState, type HTMLAttributes } from "react";
 import { useRouter } from "next/navigation";
 import { HomeIcon, PlusIcon, UserIcon } from "@/components/ui/icons";
+import { CreatePostDialog } from "@/features/posts/components/create-post-dialog";
 import { cn } from "@/lib/utils";
 
 export type NavItemKey = "home" | "add" | "profile";
@@ -27,6 +28,7 @@ export function FloatingNav({
   ...props
 }: Readonly<FloatingNavProps>) {
   const router = useSafeRouter();
+  const [isCreateOpen, setIsCreateOpen] = useState(false);
 
   const handleSelectKey = (key: NavItemKey) => {
     if (onSelectKey) {
@@ -37,11 +39,14 @@ export function FloatingNav({
       router?.push("/feed");
     } else if (key === "profile") {
       router?.push("/me");
+    } else if (key === "add") {
+      setIsCreateOpen(true);
     }
   };
 
   return (
-    <nav
+    <>
+      <nav
       role="navigation"
       aria-label="Main navigation"
       className={cn(
@@ -98,5 +103,7 @@ export function FloatingNav({
         <span className="text-[10px] font-medium sr-only md:not-sr-only">Profile</span>
       </button>
     </nav>
+    <CreatePostDialog isOpen={isCreateOpen} onClose={() => setIsCreateOpen(false)} />
+  </>
   );
 }

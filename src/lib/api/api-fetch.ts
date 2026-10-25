@@ -22,9 +22,16 @@ function resolveFetch(customFetch?: typeof fetch): typeof fetch {
   return customFetch !== undefined ? customFetch : globalThis.fetch;
 }
 
-function serializeBody(body: unknown): string | undefined {
+function isFormData(body: unknown): body is FormData {
+  return typeof FormData !== "undefined" && body instanceof FormData;
+}
+
+function serializeBody(body: unknown): BodyInit | undefined {
   if (body === undefined) {
     return undefined;
+  }
+  if (isFormData(body)) {
+    return body;
   }
   return typeof body === "string" ? body : JSON.stringify(body);
 }
@@ -32,12 +39,13 @@ function serializeBody(body: unknown): string | undefined {
 interface RequestHeadersConfig {
   readonly customHeaders?: Record<string, string>;
   readonly hasBody: boolean;
+  readonly isMultipart?: boolean;
   readonly token?: string;
 }
 
 function createRequestHeaders(config: RequestHeadersConfig): Headers {
   const headers = new Headers(config.customHeaders);
-  if (config.hasBody && !headers.has("Content-Type")) {
+  if (config.hasBody && !config.isMultipart && !headers.has("Content-Type")) {
     headers.set("Content-Type", "application/json");
   }
   if (!headers.has("Accept")) {
@@ -93,6 +101,7 @@ export async function apiFetch<T = unknown>(options: ApiFetchOptions<T>): Promis
   const headers = createRequestHeaders({
     customHeaders: options.headers,
     hasBody: serialized !== undefined,
+    isMultipart: isFormData(options.body),
     token: options.token,
   });
 
