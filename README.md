@@ -61,6 +61,29 @@ assets, and network traffic. Ensure no unexpected external network requests are
 emitted. Keep temporary screenshots, browser reports, and logs outside authored
 source.
 
+## Completed in Stage 7C (Edit Profile Modal)
+
+- **Redux User Update Action (`src/features/auth/auth-slice.ts`)**:
+  - `updateUser(payload: Partial<AuthUser>)`: updates `state.user` with new profile fields (`name`, `avatarUrl`, `bio`) without disturbing active `token`, `sessionId`, or `status`.
+  - Automatically synchronizes persistent `session-storage.ts` with updated user credentials.
+- **Edit Profile Mutation Hook (`src/features/profile/use-edit-profile.ts`)**:
+  - `useEditProfile()`: TanStack Query mutation hook calling `PATCH /api/me` with Bearer token authentication.
+  - Multipart/JSON polymorphic body construction: sends `FormData` when `avatar instanceof File`, or standard JSON payload when updating text-only fields or string avatar URLs.
+  - Redux and storage reconciliation: dispatches `updateUser` to Redux `authSlice` and updates `session-storage.ts` on success.
+  - Multi-cache invalidation: invalidates session-isolated `queryKeys.private(sessionId).me()` and public user profile cache `queryKeys.public.userProfile(username)`.
+  - In-flight concurrency guard: prevents accidental duplicate in-flight submissions.
+  - Unauthenticated visitor protection: safely redirects unauthenticated callers to `/login`.
+- **Accessible Edit Profile Modal (`src/features/profile/components/edit-profile-dialog.tsx`)**:
+  - Built using `Dialog` primitive with accessible focus trapping, backdrop blur, and Escape key dismissal.
+  - Avatar management: preview with "Change avatar" trigger, validating MIME types (`image/png`, `image/jpeg`, `image/webp`) and enforcing 5MB max file size with memory leak protection (`URL.revokeObjectURL`).
+  - Full Name input: text field with validation (required, trimmed, minimum 1 character).
+  - Bio textarea: character-counted textarea (`X/200`) capped at 200 characters.
+  - Email policy: read-only input with helper text "Email cannot be changed" adhering to non-editable email policy.
+  - Actions: "Cancel" button and "Save changes" submit button with mutation loading spinner.
+- **Profile Header & /me Integration (`src/features/profile/components/profile-header.tsx`, `src/app/(private)/me/page.tsx`)**:
+  - Enabled active "Edit profile" button on `ProfileHeader` via `onEditProfile` callback prop.
+  - Wired `/me` profile page to manage `EditProfileDialog` open/close modal state.
+
 ## Completed in Stage 7B (Delete Own Post)
 
 - **Post Cache Removal Utility (`src/features/posts/post-cache-utils.ts`)**:
@@ -449,7 +472,7 @@ source.
   - Avatar with initials fallback or image URL (`size="xl"`, responsive dimensions `h-16 w-16 md:h-20 md:w-20`).
   - Identity presentation: bold display name (`#FDFDFD`), `@username` (`#A4A7AE`), bio text with fallback "No bio yet".
   - Quick stats row displaying `Posts`, `Followers`, and `Following` counts with bold numbers.
-  - Action buttons: "Edit profile" (accessible disabled placeholder with "Available in Stage 7" notice) and "Log out" button invoking `useLogout()`.
+  - Action buttons: "Edit profile" button (triggering `EditProfileDialog`) and "Log out" button invoking `useLogout()`.
 - **Read-Only /me Profile Page (`src/app/(private)/me/page.tsx`)**:
   - Wrapped with `<AuthGuard>` to strictly prevent unauthenticated access.
   - Full feedback lifecycle: loading skeleton (`ProfileSkeleton`), error state with retry (`ErrorState`), and loaded profile view.
@@ -596,7 +619,7 @@ source.
 
 ## Not implemented
 
-Stages 1, 2, 3, 4 (Search, Public Profiles, and Social Graph), 5 (Like/Save Mutations, Comments Models & Responsive Dialog), 6 (Shareable Post Detail Route, Single Post Query & Comment Deletion), 7A (Create Post Modal & Multipart Upload), and 7B (Delete Own Post) are completed. Stage 7C (Edit Profile) and Stage 8 (Integrated acceptance and delivery) remain pending.
+Stages 1, 2, 3, 4 (Search, Public Profiles, and Social Graph), 5 (Like/Save Mutations, Comments Models & Responsive Dialog), 6 (Shareable Post Detail Route, Single Post Query & Comment Deletion), and 7 (7A Create Post Modal, 7B Delete Own Post, 7C Edit Profile Modal) are completed. Stage 8 (Integrated acceptance and delivery) remains pending.
 
 The preserved files in `docs/` and `AGENTS.md` supply the project requirements.
 No deployment or backend writes are part of this scaffold.

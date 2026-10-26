@@ -9,6 +9,7 @@ import { FloatingNav } from "@/components/layout/floating-nav";
 import { Header } from "@/components/layout/header";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { EditProfileDialog } from "@/features/profile/components/edit-profile-dialog";
 import { ProfileHeader } from "@/features/profile/components/profile-header";
 import { UserListDialog } from "@/features/profile/components/user-list-dialog";
 import type { UserProfile } from "@/features/profile/types";
@@ -47,6 +48,7 @@ function ProfileOverviewTab({ profile }: { readonly profile: UserProfile }) {
 function ProfileView() {
   const router = useRouter();
   const [dialogType, setDialogType] = useState<"followers" | "following" | null>(null);
+  const [isEditOpen, setIsEditOpen] = useState(false);
   const { profile, isLoading, isError, error, refetch } = useMyProfile();
   const username = profile?.username ?? "";
   const { users: followers, isLoading: isFollowersLoading, isError: isFollowersError, refetch: refetchFollowers } =
@@ -72,6 +74,7 @@ function ProfileView() {
               profile={profile}
               onFollowersClick={() => setDialogType("followers")}
               onFollowingClick={() => setDialogType("following")}
+              onEditProfile={() => setIsEditOpen(true)}
             />
             <Tabs defaultValue="overview">
               <TabsList aria-label="Profile navigation tabs" className="w-full justify-start overflow-x-auto">
@@ -96,6 +99,11 @@ function ProfileView() {
               isError={dialogType === "followers" ? isFollowersError : isFollowingError}
               emptyMessage={dialogType === "followers" ? "No followers yet" : "Not following anyone yet"}
               onRetry={dialogType === "followers" ? () => void refetchFollowers() : () => void refetchFollowing()}
+            />
+            <EditProfileDialog
+              isOpen={isEditOpen}
+              onClose={() => setIsEditOpen(false)}
+              profile={profile}
             />
           </>
         )}

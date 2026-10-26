@@ -1,6 +1,14 @@
 import { createSlice } from "@reduxjs/toolkit";
 import type { PayloadAction } from "@reduxjs/toolkit";
-import type { AuthState, SessionData } from "./types";
+import { saveSession } from "./session-storage";
+import type { AuthState, AuthUser, SessionData } from "./types";
+
+declare module "./types" {
+  interface AuthUser {
+    readonly avatarUrl?: string;
+    readonly bio?: string;
+  }
+}
 
 const initialState: AuthState = {
   token: null,
@@ -25,8 +33,25 @@ export const authSlice = createSlice({
       state.user = null;
       state.status = "unauthenticated";
     },
+    updateUser(state, action: PayloadAction<Partial<AuthUser>>) {
+      if (state.user) {
+        state.user = {
+          ...state.user,
+          ...action.payload,
+        };
+      } else {
+        state.user = action.payload;
+      }
+      if (state.token && state.sessionId) {
+        saveSession({
+          token: state.token,
+          sessionId: state.sessionId,
+          user: state.user,
+        });
+      }
+    },
   },
 });
 
-export const { setSession, clearSession } = authSlice.actions;
+export const { setSession, clearSession, updateUser } = authSlice.actions;
 export const authReducer = authSlice.reducer;

@@ -80,12 +80,15 @@ describe("ProfileHeader", () => {
     expect(screen.getByText("AR")).toBeInTheDocument();
   });
 
-  it("disables the Edit profile button with Stage 7 notice", () => {
-    render(<ProfileHeader profile={mockProfile} />);
+  it("invokes onEditProfile callback when Edit profile button is clicked", () => {
+    const handleEditProfile = vi.fn();
+    render(<ProfileHeader profile={mockProfile} onEditProfile={handleEditProfile} />);
 
     const editBtn = screen.getByRole("button", { name: /Edit profile/i });
-    expect(editBtn).toBeDisabled();
-    expect(editBtn).toHaveAttribute("title", "Available in Stage 7");
+    expect(editBtn).toBeEnabled();
+    fireEvent.click(editBtn);
+
+    expect(handleEditProfile).toHaveBeenCalledTimes(1);
   });
 
   it("invokes onLogout callback when Log out button is clicked", () => {

@@ -1,6 +1,7 @@
-import { describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it } from "vitest";
 import { makeStore } from "@/lib/store/store";
-import { authReducer, clearSession, setSession } from "./auth-slice";
+import { authReducer, clearSession, setSession, updateUser } from "./auth-slice";
+import { clearSession as clearStorage, loadSession } from "./session-storage";
 import type { AuthState, SessionData } from "./types";
 
 const mockSession: SessionData = {
@@ -15,11 +16,12 @@ const mockSession: SessionData = {
 };
 
 describe("authSlice", () => {
-  it("returns initial auth state on undefined input", () => {
-    // Arrange & Act
-    const state = authReducer(undefined, { type: "@@INIT" });
+  beforeEach(() => {
+    clearStorage();
+  });
 
-    // Assert
+  it("returns initial auth state on undefined input", () => {
+    const state = authReducer(undefined, { type: "@@INIT" });
     expect(state).toEqual<AuthState>({
       token: null,
       sessionId: null,
@@ -29,13 +31,9 @@ describe("authSlice", () => {
   });
 
   it("updates state and sets status to authenticated on setSession", () => {
-    // Arrange
     const initialState = authReducer(undefined, { type: "@@INIT" });
-
-    // Act
     const nextState = authReducer(initialState, setSession(mockSession));
 
-    // Assert
     expect(nextState.token).toBe(mockSession.token);
     expect(nextState.sessionId).toBe(mockSession.sessionId);
     expect(nextState.user).toEqual(mockSession.user);
@@ -43,59 +41,72 @@ describe("authSlice", () => {
   });
 
   it("sets user to null when payload user is omitted on setSession", () => {
-    // Arrange
     const initialState = authReducer(undefined, { type: "@@INIT" });
     const sessionWithoutUser: SessionData = {
       token: "jwt-token-no-user",
       sessionId: "session-no-user",
     };
-
-    // Act
     const nextState = authReducer(initialState, setSession(sessionWithoutUser));
 
-    // Assert
     expect(nextState.user).toBeNull();
     expect(nextState.status).toBe("authenticated");
   });
 
   it("resets state and transitions status to unauthenticated on clearSession", () => {
-    // Arrange
     const authenticatedState = authReducer(undefined, setSession(mockSession));
-    expect(authenticatedState.status).toBe("authenticated");
-
-    // Act
     const clearedState = authReducer(authenticatedState, clearSession());
 
-    // Assert
     expect(clearedState.token).toBeNull();
     expect(clearedState.sessionId).toBeNull();
     expect(clearedState.user).toBeNull();
     expect(clearedState.status).toBe("unauthenticated");
   });
 
+  it("updates user profile and syncs session storage while preserving token", () => {
+    const authenticatedState = authReducer(undefined, setSession(mockSession));
+    const updatedState = authReducer(
+      authenticatedState,
+      updateUser({ name: "Alex Updated", avatarUrl: "https://example.com/avatar.jpg" }),
+    );
+
+    expect(updatedState.token).toBe(mockSession.token);
+    expect(updatedState.sessionId).toBe(mockSession.sessionId);
+    expect(updatedState.status).toBe("authenticated");
+    expect(updatedState.user?.name).toBe("Alex Updated");
+    expect(updatedState.user?.avatarUrl).toBe("https://example.com/avatar.jpg");
+    expect(updatedState.user?.username).toBe("alexdev");
+
+    const persisted = loadSession();
+    expect(persisted?.user?.name).toBe("Alex Updated");
+    expect(persisted?.user?.avatarUrl).toBe("https://example.com/avatar.jpg");
+  });
+
+  it("assigns user when state.user is null on updateUser", () => {
+    const initialState = authReducer(undefined, { type: "@@INIT" });
+    const updatedState = authReducer(initialState, updateUser({ name: "New User" }));
+
+    expect(updatedState.user?.name).toBe("New User");
+    expect(updatedState.token).toBeNull();
+  });
+
   it("maintains pure functional state transitions without mutation leakage", () => {
-    // Arrange
     const stateA = authReducer(undefined, setSession(mockSession));
     const stateB = authReducer(
       stateA,
       setSession({ token: "other-token", sessionId: "other-session" }),
     );
 
-    // Assert
     expect(stateA.token).toBe(mockSession.token);
     expect(stateB.token).toBe("other-token");
     expect(stateA).not.toBe(stateB);
   });
 
   it("integrates into makeStore with isolated auth state across instances", () => {
-    // Arrange
     const storeA = makeStore();
     const storeB = makeStore();
 
-    // Act
     storeA.dispatch(setSession(mockSession));
 
-    // Assert
     expect(storeA.getState().auth.status).toBe("authenticated");
     expect(storeA.getState().auth.token).toBe(mockSession.token);
     expect(storeB.getState().auth.status).toBe("idle");

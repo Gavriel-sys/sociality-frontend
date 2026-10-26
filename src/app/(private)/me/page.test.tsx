@@ -10,7 +10,6 @@ import { makeStore, type AppStore } from "@/lib/store/store";
 import MeProfilePage from "./page";
 
 const mockPush = vi.fn();
-
 vi.mock("next/navigation", () => ({
   useRouter: () => ({ push: mockPush }),
   usePathname: () => "/me",
@@ -18,15 +17,10 @@ vi.mock("next/navigation", () => ({
 }));
 
 const mockProfile: UserProfile = {
-  id: "user-789",
-  name: "Morgan Taylor",
-  username: "morgantaylor",
-  email: "morgan@example.com",
-  bio: "Designer & builder.",
-  avatarUrl: "https://example.com/avatar.jpg",
-  postsCount: 24,
-  followersCount: 500,
-  followingCount: 180,
+  id: "user-789", name: "Morgan Taylor", username: "morgantaylor",
+  email: "morgan@example.com", bio: "Designer & builder.",
+  avatarUrl: "https://example.com/avatar.jpg", postsCount: 24,
+  followersCount: 500, followingCount: 180,
 };
 
 describe("MeProfilePage", () => {
@@ -48,32 +42,21 @@ describe("MeProfilePage", () => {
     );
   }
 
+  function mockProfileHook(profile?: UserProfile, isLoading = false, isError = false, error: Error | null = null, refetch = vi.fn()) {
+    vi.spyOn(useMyProfileModule, "useMyProfile").mockReturnValue({ profile, isLoading, isError, error, refetch });
+  }
+
   it("renders loading skeleton while profile is loading", () => {
-    vi.spyOn(useMyProfileModule, "useMyProfile").mockReturnValue({
-      profile: undefined,
-      isLoading: true,
-      isError: false,
-      error: null,
-      refetch: vi.fn(),
-    });
-
+    mockProfileHook(undefined, true);
     renderWithProviders(<MeProfilePage />);
-
     expect(screen.getByLabelText("Loading profile")).toBeInTheDocument();
   });
 
   it("renders error state when profile fails to load and supports retry", () => {
     const mockRefetch = vi.fn();
-    vi.spyOn(useMyProfileModule, "useMyProfile").mockReturnValue({
-      profile: undefined,
-      isLoading: false,
-      isError: true,
-      error: new Error("Network timeout"),
-      refetch: mockRefetch,
-    });
+    mockProfileHook(undefined, false, true, new Error("Network timeout"), mockRefetch);
 
     renderWithProviders(<MeProfilePage />);
-
     expect(screen.getByText("Failed to load profile")).toBeInTheDocument();
     expect(screen.getByText("Network timeout")).toBeInTheDocument();
 
@@ -83,59 +66,39 @@ describe("MeProfilePage", () => {
   });
 
   it("renders profile header and overview tab when profile loads", () => {
-    vi.spyOn(useMyProfileModule, "useMyProfile").mockReturnValue({
-      profile: mockProfile,
-      isLoading: false,
-      isError: false,
-      error: null,
-      refetch: vi.fn(),
-    });
-
+    mockProfileHook(mockProfile);
     renderWithProviders(<MeProfilePage />);
 
-    expect(
-      screen.getByRole("heading", { level: 1, name: "Morgan Taylor" }),
-    ).toBeInTheDocument();
+    expect(screen.getByRole("heading", { level: 1, name: "Morgan Taylor" })).toBeInTheDocument();
     expect(screen.getByText("@morgantaylor")).toBeInTheDocument();
     expect(screen.getByText("morgan@example.com")).toBeInTheDocument();
-    expect(
-      screen.getByText(
-        "Posts, Saved, and Liked collections will be integrated in Stages 3–5.",
-      ),
-    ).toBeInTheDocument();
+    expect(screen.getByText("Posts, Saved, and Liked collections will be integrated in Stages 3–5.")).toBeInTheDocument();
   });
 
   it("displays empty states when switching to non-overview tabs", () => {
-    vi.spyOn(useMyProfileModule, "useMyProfile").mockReturnValue({
-      profile: mockProfile,
-      isLoading: false,
-      isError: false,
-      error: null,
-      refetch: vi.fn(),
-    });
-
+    mockProfileHook(mockProfile);
     renderWithProviders(<MeProfilePage />);
 
     const postsTab = screen.getByRole("tab", { name: "Posts" });
     fireEvent.click(postsTab);
-
     expect(screen.getByText("No posts yet")).toBeInTheDocument();
   });
 
   it("opens followers dialog when followers counter is clicked", () => {
-    vi.spyOn(useMyProfileModule, "useMyProfile").mockReturnValue({
-      profile: mockProfile,
-      isLoading: false,
-      isError: false,
-      error: null,
-      refetch: vi.fn(),
-    });
-
+    mockProfileHook(mockProfile);
     renderWithProviders(<MeProfilePage />);
 
     const followersBtn = screen.getByRole("button", { name: "500 Followers" });
     fireEvent.click(followersBtn);
-
     expect(screen.getByRole("heading", { level: 2, name: "Followers" })).toBeInTheDocument();
+  });
+
+  it("opens edit profile dialog when Edit profile button is clicked", () => {
+    mockProfileHook(mockProfile);
+    renderWithProviders(<MeProfilePage />);
+
+    const editBtn = screen.getByRole("button", { name: "Edit profile" });
+    fireEvent.click(editBtn);
+    expect(screen.getByRole("heading", { level: 2, name: "Edit profile" })).toBeInTheDocument();
   });
 });

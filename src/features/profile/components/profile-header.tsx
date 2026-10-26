@@ -10,6 +10,7 @@ export interface ProfileHeaderProps {
   readonly onLogout?: () => void;
   readonly onFollowersClick?: () => void;
   readonly onFollowingClick?: () => void;
+  readonly onEditProfile?: () => void;
 }
 
 function LogOutIcon() {
@@ -36,6 +37,7 @@ export function ProfileHeader({
   onLogout,
   onFollowersClick,
   onFollowingClick,
+  onEditProfile,
 }: Readonly<ProfileHeaderProps>) {
   const logoutAction = useLogout();
   const handleLogout = onLogout ?? (() => logoutAction());
@@ -92,19 +94,14 @@ export function ProfileHeader({
       </div>
 
       <div className="flex items-center gap-3">
-        <div className="relative inline-flex items-center">
-          <Button
-            variant="outline"
-            size="sm"
-            disabled
-            aria-disabled="true"
-            title="Available in Stage 7"
-            className="cursor-not-allowed opacity-60"
-          >
-            Edit profile
-          </Button>
-          <span className="sr-only">Available in Stage 7</span>
-        </div>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={onEditProfile}
+          aria-label="Edit profile"
+        >
+          Edit profile
+        </Button>
 
         <Button
           variant="destructive"
