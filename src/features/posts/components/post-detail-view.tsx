@@ -1,9 +1,11 @@
 "use client";
 
+import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { Avatar } from "@/components/ui/avatar";
 import {
   BookmarkFilledIcon, BookmarkIcon, HeartFilledIcon, HeartIcon,
-  ImageIcon, MessageCircleIcon, ShareIcon,
+  ImageIcon, MessageCircleIcon, MoreHorizontalIcon, ShareIcon,
 } from "@/components/ui/icons";
 import { EmptyState } from "@/components/feedback/empty-state";
 import { ErrorState } from "@/components/feedback/error-state";
@@ -18,25 +20,36 @@ import type { Post } from "@/features/posts/types";
 import { usePostLikeToggle } from "@/features/posts/use-post-like-toggle";
 import { usePostSaveToggle } from "@/features/posts/use-post-save-toggle";
 import { cn } from "@/lib/utils";
+import { PostOptionsDialog } from "./post-options-dialog";
 
 export interface PostDetailViewProps {
   readonly post: Post;
   readonly className?: string;
 }
 
-function AuthorHeader({ post }: { readonly post: Post }) {
+function AuthorHeader({ post, onOptionsClick }: { readonly post: Post; readonly onOptionsClick?: () => void }) {
   const authorName = post.author.name || `@${post.author.username}`;
   return (
-    <div className="flex items-center gap-3 p-4 border-b border-[#1F242F] shrink-0">
-      <Avatar src={post.author.avatarUrl} alt={authorName} fallback={authorName} size="md" />
-      <div className="flex min-w-0 flex-1 flex-col">
-        <span className="truncate text-sm font-semibold text-[#FDFDFD]">{authorName}</span>
-        <div className="flex items-center gap-1.5 text-xs text-[#A4A7AE]">
-          {post.author.username && <span>@{post.author.username}</span>}
-          <span>·</span>
-          <time dateTime={post.createdAt}>{formatRelativeTime(post.createdAt)}</time>
+    <div className="flex items-center justify-between gap-3 p-4 border-b border-[#1F242F] shrink-0">
+      <div className="flex items-center gap-3 min-w-0 flex-1">
+        <Avatar src={post.author.avatarUrl} alt={authorName} fallback={authorName} size="md" />
+        <div className="flex min-w-0 flex-1 flex-col">
+          <span className="truncate text-sm font-semibold text-[#FDFDFD]">{authorName}</span>
+          <div className="flex items-center gap-1.5 text-xs text-[#A4A7AE]">
+            {post.author.username && <span>@{post.author.username}</span>}
+            <span>·</span>
+            <time dateTime={post.createdAt}>{formatRelativeTime(post.createdAt)}</time>
+          </div>
         </div>
       </div>
+      <button
+        type="button"
+        aria-label="More options"
+        onClick={onOptionsClick}
+        className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-lg text-[#A4A7AE] transition-colors hover:text-[#FDFDFD] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#B41759]"
+      >
+        <MoreHorizontalIcon className="h-5 w-5" />
+      </button>
     </div>
   );
 }
@@ -93,27 +106,33 @@ function CommentsStream({
 }
 
 export function PostDetailView({ post, className }: Readonly<PostDetailViewProps>) {
+  const router = useRouter();
+  const [isOptionsOpen, setIsOptionsOpen] = useState(false);
   const { comments, isLoading, isError, refetch } = usePostComments(post.id);
   const { addComment, isPending } = useAddComment(post.id);
 
   return (
-    <article aria-label={`Post detail by ${post.author.name || `@${post.author.username}`}`} className={cn("flex flex-col md:flex-row rounded-2xl border border-[#1F242F] bg-[#0A0D12] overflow-hidden min-h-[480px]", className)}>
-      <div className="md:hidden"><AuthorHeader post={post} /></div>
-      <div className="relative aspect-square w-full md:w-1/2 bg-black flex items-center justify-center shrink-0 overflow-hidden">
-        {post.imageUrl ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img src={post.imageUrl} alt={post.caption ? `Post image: ${post.caption.slice(0, 50)}` : "Post image"} className="h-full w-full object-cover" />
-        ) : (
-          <div className="flex flex-col items-center gap-2 text-[#A4A7AE]"><ImageIcon className="h-12 w-12 opacity-50" /><span className="text-xs">Image unavailable</span></div>
-        )}
-      </div>
-      <div className="flex flex-col w-full md:w-1/2 min-h-0 bg-[#0A0D12] border-t md:border-t-0 md:border-l border-[#1F242F]">
-        <div className="hidden md:block"><AuthorHeader post={post} /></div>
-        <ActionsRow post={post} />
-        {post.caption ? <div className="border-b border-[#1F242F] p-4 text-sm text-[#D5D7DA] shrink-0"><span className="font-semibold text-[#FDFDFD]">{post.author.username}</span> {post.caption}</div> : null}
-        <div className="flex-1 overflow-y-auto p-4 space-y-2 max-h-[50vh]"><CommentsStream comments={comments} postId={post.id} isLoading={isLoading} isError={isError} onRetry={() => void refetch()} /></div>
-        <div className="border-t border-[#1F242F] p-4 bg-[#0A0D12] shrink-0"><CommentInputForm onSubmit={async (content) => { await addComment(content); }} isLoading={isPending} /></div>
-      </div>
-    </article>
+    <>
+      <article aria-label={`Post detail by ${post.author.name || `@${post.author.username}`}`} className={cn("flex flex-col md:flex-row rounded-2xl border border-[#1F242F] bg-[#0A0D12] overflow-hidden min-h-[480px]", className)}>
+        <div className="md:hidden"><AuthorHeader post={post} onOptionsClick={() => setIsOptionsOpen(true)} /></div>
+        <div className="relative aspect-square w-full md:w-1/2 bg-black flex items-center justify-center shrink-0 overflow-hidden">
+          {post.imageUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={post.imageUrl} alt={post.caption ? `Post image: ${post.caption.slice(0, 50)}` : "Post image"} className="h-full w-full object-cover" />
+          ) : (
+            <div className="flex flex-col items-center gap-2 text-[#A4A7AE]"><ImageIcon className="h-12 w-12 opacity-50" /><span className="text-xs">Image unavailable</span></div>
+          )}
+        </div>
+        <div className="flex flex-col w-full md:w-1/2 min-h-0 bg-[#0A0D12] border-t md:border-t-0 md:border-l border-[#1F242F]">
+          <div className="hidden md:block"><AuthorHeader post={post} onOptionsClick={() => setIsOptionsOpen(true)} /></div>
+          <ActionsRow post={post} />
+          {post.caption ? <div className="border-b border-[#1F242F] p-4 text-sm text-[#D5D7DA] shrink-0"><span className="font-semibold text-[#FDFDFD]">{post.author.username}</span> {post.caption}</div> : null}
+          <div className="flex-1 overflow-y-auto p-4 space-y-2 max-h-[50vh]"><CommentsStream comments={comments} postId={post.id} isLoading={isLoading} isError={isError} onRetry={() => void refetch()} /></div>
+          <div className="border-t border-[#1F242F] p-4 bg-[#0A0D12] shrink-0"><CommentInputForm onSubmit={async (content) => { await addComment(content); }} isLoading={isPending} /></div>
+        </div>
+      </article>
+
+      <PostOptionsDialog post={post} isOpen={isOptionsOpen} onClose={() => setIsOptionsOpen(false)} onDeleted={() => router.push("/feed")} />
+    </>
   );
 }

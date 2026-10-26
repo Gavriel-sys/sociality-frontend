@@ -61,6 +61,31 @@ assets, and network traffic. Ensure no unexpected external network requests are
 emitted. Keep temporary screenshots, browser reports, and logs outside authored
 source.
 
+## Completed in Stage 7B (Delete Own Post)
+
+- **Post Cache Removal Utility (`src/features/posts/post-cache-utils.ts`)**:
+  - `removePostFromCache(queryClient, postId)`: removes post with matching ID across all TanStack Query caches (infinite data pages, arrays, and single post record caches) without throwing on empty or non-matching caches.
+- **Post Deletion Mutation Hook (`src/features/posts/use-delete-post.ts`)**:
+  - `useDeletePost(postId)`: TanStack Query mutation hook calling `DELETE /api/posts/{id}` with Bearer token authentication.
+  - Optimistic UI update: cancels ongoing post queries, captures pre-mutation query cache snapshot, and immediately removes the post from cache via `removePostFromCache`.
+  - Error rollback: restores previous cache snapshot via `restorePostQueries` if network request fails.
+  - Unauthenticated guard: safely redirects unauthenticated visitors to `/login` and aborts mutation.
+  - In-flight concurrency guard: prevents accidental duplicate in-flight deletions.
+  - Query settlement invalidation: invalidates `feed`, `explore`, and `posts` query caches upon completion.
+- **Accessible Post Options Modal (`src/features/posts/components/post-options-dialog.tsx`)**:
+  - Accessible modal dialog built on `Dialog` primitive with focus trap and Escape key dismissal.
+  - Ownership check: strictly verifies authenticated user against post author (`authUser?.username?.toLowerCase() === post.author.username.toLowerCase()`).
+  - Owner-only actions:
+    - Displays destructive "Delete post" action button.
+    - Inline confirmation prompt: "Are you sure you want to delete this post? This action cannot be undone." with "Delete" confirmation button and "Cancel" button, eliminating accidental deletions.
+    - Active mutation state: shows loading spinner and disables buttons during in-flight deletion.
+    - `onDeleted` callback support: triggers post-deletion redirection when provided.
+  - Universal share action (owners and guests/non-owners):
+    - "Copy link to post" button: copies `/posts/{post.id}` to clipboard and displays real-time "Copied!" feedback.
+- **3-Dots Overflow Menu Wiring (`PostCard` & `PostDetailView`)**:
+  - `PostCard`: wires header `MoreHorizontalIcon` button to open `PostOptionsDialog`.
+  - `PostDetailView`: wires mobile and desktop author headers' `MoreHorizontalIcon` button to open `PostOptionsDialog`, passing `onDeleted={() => router.push("/feed")}` to smoothly redirect visitors to `/feed` when their post is deleted.
+
 ## Completed in Stage 7A (Create Post Modal & Multipart Upload)
 
 - **Multipart FormData Transport Support (`src/lib/api/api-fetch.ts`)**:
@@ -571,7 +596,7 @@ source.
 
 ## Not implemented
 
-Stages 1, 2, 3, 4 (Search, Public Profiles, and Social Graph), 5 (Like/Save Mutations, Comments Models & Responsive Dialog), and 6A (Shareable Post Detail Route & Single Post Query) are completed. Stage 6B/6C (Comments thread enhancements / share actions), Stage 7 (Create/delete posts and edit profile), and Stage 8 (Integrated acceptance and delivery) remain pending.
+Stages 1, 2, 3, 4 (Search, Public Profiles, and Social Graph), 5 (Like/Save Mutations, Comments Models & Responsive Dialog), 6 (Shareable Post Detail Route, Single Post Query & Comment Deletion), 7A (Create Post Modal & Multipart Upload), and 7B (Delete Own Post) are completed. Stage 7C (Edit Profile) and Stage 8 (Integrated acceptance and delivery) remain pending.
 
 The preserved files in `docs/` and `AGENTS.md` supply the project requirements.
 No deployment or backend writes are part of this scaffold.

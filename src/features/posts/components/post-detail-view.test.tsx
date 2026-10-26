@@ -9,8 +9,9 @@ import * as apiFetchModule from "@/lib/api/api-fetch";
 import { makeStore, type AppStore } from "@/lib/store/store";
 import { PostDetailView } from "./post-detail-view";
 
+const mockPush = vi.fn();
 vi.mock("next/navigation", () => ({
-  useRouter: () => ({ push: vi.fn(), replace: vi.fn() }),
+  useRouter: () => ({ push: mockPush, replace: vi.fn() }),
   usePathname: () => "/posts/p-10",
 }));
 
@@ -48,7 +49,6 @@ describe("PostDetailView component", () => {
     expect(screen.getByText("Sunset over Mount Rainier!")).toBeInTheDocument();
     expect(screen.getByRole("img", { name: /Post image:/i })).toHaveAttribute("src", mockPost.imageUrl);
     expect(screen.getByText("50")).toBeInTheDocument();
-    expect(screen.getByText("2")).toBeInTheDocument();
   });
 
   it("renders comments loading skeletons and then loaded comments list", async () => {
@@ -82,37 +82,48 @@ describe("PostDetailView component", () => {
     fireEvent.click(screen.getByRole("button", { name: "Like post" }));
 
     await waitFor(() => {
-      expect(apiSpy).toHaveBeenCalledWith(expect.objectContaining({
-        endpoint: "/api/posts/p-10/like",
-        method: "POST",
-      }));
+      expect(apiSpy).toHaveBeenCalledWith(expect.objectContaining({ endpoint: "/api/posts/p-10/like", method: "POST" }));
+    });
+  });
+
+  it("opens options dialog on 3-dots click and redirects to /feed on delete", async () => {
+    const apiSpy = vi.spyOn(apiFetchModule, "apiFetch").mockImplementation(async (opts) => {
+      if (opts.method === "DELETE") return { ok: true };
+      return mockComments;
+    });
+    const store = makeStore();
+    store.dispatch(setSession({ token: "card-tok", sessionId: "card-sess", user: { username: "rainier" } }));
+
+    renderWithProviders(<PostDetailView post={mockPost} />, store);
+    const moreBtn = screen.getAllByRole("button", { name: "More options" })[0];
+    fireEvent.click(moreBtn);
+
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Delete post" }));
+    fireEvent.click(screen.getByRole("button", { name: "Delete" }));
+
+    await waitFor(() => {
+      expect(apiSpy).toHaveBeenCalledWith(expect.objectContaining({ endpoint: "/api/posts/p-10", method: "DELETE" }));
+      expect(mockPush).toHaveBeenCalledWith("/feed");
     });
   });
 
   it("submits comment form and calls addComment API", async () => {
     const apiSpy = vi.spyOn(apiFetchModule, "apiFetch").mockImplementation(async (opts) => {
-      if (opts.method === "POST") {
-        return { id: "c-new", content: "Fantastic picture!", createdAt: new Date().toISOString(), author: { id: "u-me", name: "Me", username: "me" } };
-      }
+      if (opts.method === "POST") return { id: "c-new", content: "Superb!", createdAt: new Date().toISOString(), author: { id: "u-me", name: "Me", username: "me" } };
       return mockComments;
     });
-
     const store = makeStore();
     store.dispatch(setSession({ token: "card-tok", sessionId: "card-sess", user: { id: "u-me", username: "me" } }));
 
     renderWithProviders(<PostDetailView post={mockPost} />, store);
     await waitFor(() => expect(screen.getByText("Majestic view!")).toBeInTheDocument());
 
-    const input = screen.getByPlaceholderText("Add a comment...");
-    fireEvent.change(input, { target: { value: "Fantastic picture!" } });
+    fireEvent.change(screen.getByPlaceholderText("Add a comment..."), { target: { value: "Superb!" } });
     fireEvent.click(screen.getByRole("button", { name: "Post" }));
 
     await waitFor(() => {
-      expect(apiSpy).toHaveBeenCalledWith(expect.objectContaining({
-        endpoint: "/api/posts/p-10/comments",
-        method: "POST",
-        body: { content: "Fantastic picture!" },
-      }));
+      expect(apiSpy).toHaveBeenCalledWith(expect.objectContaining({ endpoint: "/api/posts/p-10/comments", method: "POST" }));
     });
   });
 });

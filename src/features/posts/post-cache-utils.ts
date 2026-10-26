@@ -45,6 +45,30 @@ function updatePostStructure(old: unknown, targetId: string | number, updater: (
   return updateContainer(old, targetId, updater);
 }
 
+function removeList(list: readonly unknown[], targetId: string | number): readonly unknown[] {
+  return list.filter((item) => !(typeof item === "object" && item !== null && "id" in item && matchesPostId((item as { id: unknown }).id, targetId)));
+}
+
+function removeContainer(item: unknown, targetId: string | number): unknown {
+  if (Array.isArray(item)) return removeList(item, targetId);
+  if (typeof item === "object" && item !== null) {
+    const rec = item as Record<string, unknown>;
+    if (Array.isArray(rec.posts)) return { ...rec, posts: removeList(rec.posts, targetId) };
+    if (Array.isArray(rec.data)) return { ...rec, data: removeList(rec.data, targetId) };
+    if ("id" in rec && matchesPostId(rec.id, targetId)) return undefined;
+  }
+  return item;
+}
+
+function removePostStructure(old: unknown, targetId: string | number): unknown {
+  if (typeof old !== "object" || old === null) return old;
+  if ("pages" in old && Array.isArray((old as { pages: unknown[] }).pages)) {
+    const inf = old as { pages: readonly unknown[]; pageParams: readonly unknown[] };
+    return { ...inf, pages: inf.pages.map((page) => removeContainer(page, targetId)) };
+  }
+  return removeContainer(old, targetId);
+}
+
 function findInList(list: readonly unknown[], targetId: string | number): Post | undefined {
   for (const item of list) {
     if (typeof item === "object" && item !== null && "id" in item && matchesPostId((item as { id: unknown }).id, targetId)) {
@@ -83,6 +107,13 @@ export function updatePostInCache(queryClient: QueryClient, postId: string | num
   queryClient.setQueriesData<unknown>(
     { predicate: (q) => isPostQueryKey(q.queryKey) },
     (old: unknown) => updatePostStructure(old, postId, updater),
+  );
+}
+
+export function removePostFromCache(queryClient: QueryClient, postId: string | number): void {
+  queryClient.setQueriesData<unknown>(
+    { predicate: (q) => isPostQueryKey(q.queryKey) },
+    (old: unknown) => removePostStructure(old, postId),
   );
 }
 

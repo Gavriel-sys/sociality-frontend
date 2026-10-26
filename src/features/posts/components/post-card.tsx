@@ -13,6 +13,7 @@ import type { Post } from "@/features/posts/types";
 import { usePostLikeToggle } from "@/features/posts/use-post-like-toggle";
 import { usePostSaveToggle } from "@/features/posts/use-post-save-toggle";
 import { cn } from "@/lib/utils";
+import { PostOptionsDialog } from "./post-options-dialog";
 
 export interface PostCardProps {
   readonly post: Post;
@@ -28,6 +29,7 @@ export function PostCard({ post, onLike, onComment, onSave, onShare, className }
   const [hasImageError, setHasImageError] = useState(false);
   const [isExpanded, setIsExpanded] = useState(false);
   const [isCommentsOpen, setIsCommentsOpen] = useState(false);
+  const [isOptionsOpen, setIsOptionsOpen] = useState(false);
 
   const likeToggle = usePostLikeToggle(post);
   const saveToggle = usePostSaveToggle(post);
@@ -63,7 +65,7 @@ export function PostCard({ post, onLike, onComment, onSave, onShare, className }
               </div>
             </div>
           </div>
-          <button type="button" aria-label="More options" className={actionBtnClass}>
+          <button type="button" aria-label="More options" onClick={() => setIsOptionsOpen(true)} className={actionBtnClass}>
             <MoreHorizontalIcon className="h-5 w-5" />
           </button>
         </header>
@@ -89,21 +91,11 @@ export function PostCard({ post, onLike, onComment, onSave, onShare, className }
 
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-1">
-            <button
-              type="button"
-              aria-label={isLiked ? "Unlike post" : "Like post"}
-              onClick={handleLike}
-              className={cn(actionBtnClass, "gap-1.5 px-2")}
-            >
+            <button type="button" aria-label={isLiked ? "Unlike post" : "Like post"} onClick={handleLike} className={cn(actionBtnClass, "gap-1.5 px-2")}>
               {isLiked ? <HeartFilledIcon className="h-5 w-5 text-[#B41759]" /> : <HeartIcon className="h-5 w-5 text-[#FDFDFD]" />}
               <span className={cn("text-xs font-semibold", isLiked ? "text-[#B41759]" : "text-[#A4A7AE]")}>{likesCount}</span>
             </button>
-            <button
-              type="button"
-              aria-label="View comments"
-              onClick={handleComment}
-              className={cn(actionBtnClass, "gap-1.5 px-2")}
-            >
+            <button type="button" aria-label="View comments" onClick={handleComment} className={cn(actionBtnClass, "gap-1.5 px-2")}>
               <MessageCircleIcon className="h-5 w-5 text-[#FDFDFD]" />
               <span className="text-xs font-semibold text-[#A4A7AE]">{post.commentsCount}</span>
             </button>
@@ -111,12 +103,7 @@ export function PostCard({ post, onLike, onComment, onSave, onShare, className }
               <ShareIcon className="h-5 w-5 text-[#FDFDFD]" />
             </button>
           </div>
-          <button
-            type="button"
-            aria-label={isSaved ? "Remove from saved" : "Save post"}
-            onClick={handleSave}
-            className={actionBtnClass}
-          >
+          <button type="button" aria-label={isSaved ? "Remove from saved" : "Save post"} onClick={handleSave} className={actionBtnClass}>
             {isSaved ? <BookmarkFilledIcon className="h-5 w-5 text-[#FDFDFD]" /> : <BookmarkIcon className="h-5 w-5 text-[#FDFDFD]" />}
           </button>
         </div>
@@ -139,6 +126,7 @@ export function PostCard({ post, onLike, onComment, onSave, onShare, className }
       </article>
 
       <PostCommentsDialog post={post} isOpen={isCommentsOpen} onClose={() => setIsCommentsOpen(false)} />
+      <PostOptionsDialog post={post} isOpen={isOptionsOpen} onClose={() => setIsOptionsOpen(false)} />
     </>
   );
 }

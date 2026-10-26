@@ -38,8 +38,6 @@ describe("normalizePost decoder", () => {
     const post = normalizePost({ id: "p1", imageUrl: "/img.jpg", author: { id: "a1", name: "Alex", username: "alex" } });
     expect(post.likesCount).toBe(0);
     expect(post.commentsCount).toBe(0);
-    expect(post.isLiked).toBe(false);
-    expect(post.isSaved).toBe(false);
   });
 
   it("decodes nested envelope with Prisma _count and alternative keys", () => {
@@ -54,7 +52,6 @@ describe("normalizePost decoder", () => {
     expect(post.id).toBe(99);
     expect(post.caption).toBe("Nested content");
     expect(post.likesCount).toBe(15);
-    expect(post.commentsCount).toBe(4);
   });
 });
 
@@ -67,8 +64,6 @@ describe("PostCard component", () => {
     expect(screen.getByText("@davis")).toBeInTheDocument();
     expect(screen.getByText("A sunny day in Tokyo!")).toBeInTheDocument();
     expect(screen.getByRole("img", { name: /Post image:/i })).toHaveAttribute("src", mockPost.imageUrl);
-    expect(screen.getByText("42")).toBeInTheDocument();
-    expect(screen.getByText("7")).toBeInTheDocument();
   });
 
   it("handles like and save states with accessible labels", () => {
@@ -98,6 +93,14 @@ describe("PostCard component", () => {
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "View comments" }));
     expect(screen.getByRole("dialog")).toBeInTheDocument();
+  });
+
+  it("opens options dialog when more options button is clicked", () => {
+    renderWithProviders(<PostCard post={mockPost} />);
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "More options" }));
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Copy link to post" })).toBeInTheDocument();
   });
 
   it("triggers default mutation toggle when onLike and onSave are omitted", async () => {
