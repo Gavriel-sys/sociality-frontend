@@ -61,6 +61,35 @@ assets, and network traffic. Ensure no unexpected external network requests are
 emitted. Keep temporary screenshots, browser reports, and logs outside authored
 source.
 
+## Completed in Stage 8A (Comprehensive End-to-End User Journey Test Suites)
+
+- **Authentication & Profile Lifecycle Journey (`tests/e2e/auth-profile-journey.test.tsx`)**:
+  - Full end-to-end integration test validating the complete account lifecycle without live network calls.
+  - Register schema validation with valid and invalid constraint verification (`registerSchema`).
+  - Login form interactive submission and input handling (`LoginForm`).
+  - Session hydration into persistent storage (`saveSession`) and global Redux store (`setSession`).
+  - Authenticated `/me` view access and profile rendering verification (`MeProfilePage`).
+  - Interactive profile editing modal flow (`EditProfileDialog`): updates Full Name and Bio via `PATCH /api/me`.
+  - Profile reconciliation verification across `/me` view, Redux store (`updateUser`), and session storage.
+  - Complete 3-layer teardown on logout (`useLogout`): purges localStorage, resets Redux auth slice to unauthenticated with null token, clears TanStack Query client cache, and redirects to `/login`.
+- **Social Graph & Follow Lifecycle Journey (`tests/e2e/social-graph-journey.test.tsx`)**:
+  - Full end-to-end user discovery and social relationship journey.
+  - User search flow in `/users/search`: tests input search query execution, debounced query handling, and user card rendering (`UserRow`).
+  - Cross-route profile navigation to public profile (`/profile/[username]`).
+  - Public profile inspection: validates post counters, followers count, following count, bio, and identity.
+  - Follow mutation (`POST /api/follow/{username}`): verifies optimistic button state transition to "Following" and follower counter increment.
+  - User network dialog exploration (`UserListDialog`): opens Followers dialog, inspects followers list, and dismisses dialog.
+  - Unfollow mutation (`DELETE /api/follow/{username}`): verifies optimistic button transition back to "Follow" and follower counter decrement.
+- **Post Interaction & Content Lifecycle Journey (`tests/e2e/post-interaction-journey.test.tsx`)**:
+  - Full end-to-end post discovery, engagement, discussion, and deletion lifecycle.
+  - Feed rendering: validates infinite feed post rendering (`FeedPage`), author credentials, image display, and initial interaction counters.
+  - Post like toggle (`POST /api/posts/{id}/like`): verifies crimson heart state switch and optimistic likes counter increment.
+  - Post save toggle (`POST /api/posts/{id}/save`): verifies bookmark fill state switch and optimistic cache update.
+  - Comment modal integration (`PostCommentsDialog` & `PostCommentsModal`): opens comments dialog and renders existing discussion thread.
+  - Comment creation (`POST /api/posts/{id}/comments`): validates input text submission, post button loading states, and live comment addition to the thread.
+  - Comment deletion (`DELETE /api/comments/{id}`): executes inline ownership verification, confirmation prompt, and optimistic removal from the comment list.
+  - Post deletion modal (`PostOptionsDialog`): verifies 3-dots menu trigger, owner verification, confirmation step, post deletion (`DELETE /api/posts/{id}`), cache purge across infinite queries, and empty feed state reconciliation.
+
 ## Completed in Stage 7C (Edit Profile Modal)
 
 - **Redux User Update Action (`src/features/auth/auth-slice.ts`)**:
