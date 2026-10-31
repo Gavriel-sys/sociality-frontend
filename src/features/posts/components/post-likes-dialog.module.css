@@ -1,0 +1,117 @@
+.overlay {
+  background: rgb(7 10 12 / 80%);
+  backdrop-filter: none;
+}
+
+.dialog {
+  width: 548px;
+  max-width: calc(100vw - 32px);
+  padding: 20px 19px 23px;
+  border-radius: 16px;
+  background: var(--surface);
+  box-shadow: none;
+  transform: translateY(20px);
+}
+
+.dialog [data-slot="dialog-title"] {
+  font-size: 20px;
+  font-weight: 600;
+  line-height: 28px;
+  letter-spacing: -0.02em;
+}
+
+.dialog [data-slot="dialog-close"] {
+  top: -52px;
+  right: -10px;
+  color: var(--foreground);
+}
+
+.dialog [data-slot="dialog-close"] svg {
+  width: 24px;
+  height: 24px;
+}
+
+.dialog [data-slot="dialog-content"] {
+  max-height: min(428px, calc(100dvh - 180px));
+  margin-top: 28px;
+  overflow-y: auto;
+  scrollbar-width: thin;
+}
+
+.list {
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+}
+
+.row {
+  display: flex;
+  min-height: 48px;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.profile {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 8px;
+  border-radius: 8px;
+}
+
+.profile:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 4px;
+}
+
+.identity {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 8px;
+  font-size: 14px;
+  line-height: 20px;
+}
+
+.name,
+.username {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.name { font-weight: 600; }
+.username { color: var(--muted-foreground); }
+
+@media (max-width: 47.999rem) {
+  .overlay {
+    align-items: flex-end;
+    padding: 0;
+  }
+
+  .dialog {
+    width: 100%;
+    max-width: none;
+    padding: 20px 16px max(36px, env(safe-area-inset-bottom));
+    border: 0;
+    border-radius: 16px 16px 0 0;
+    transform: none;
+  }
+
+  .dialog [data-slot="dialog-title"] {
+    font-size: 16px;
+    line-height: 24px;
+  }
+
+  .dialog [data-slot="dialog-content"] {
+    max-height: calc(100dvh - 144px);
+    margin-top: 18px;
+  }
+
+  .dialog [data-slot="dialog-close"] {
+    top: -42px;
+    right: 6px;
+  }
+}

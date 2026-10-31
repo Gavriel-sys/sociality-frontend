@@ -51,15 +51,13 @@ export function PostCommentsDialog({
   const { addComment, isPending } = useAddComment(post.id);
 
   if (!isOpen) {
-    return null;
+    return <></>;
   }
 
   const isDesktopView =
     defaultView === "modal" ? true : defaultView === "sheet" ? false : isDesktop;
 
-  const handleSubmit = async (content: string) => {
-    await addComment(content);
-  };
+  const handleSubmit = async (content: string) => { await addComment(content); };
 
   const handleRetry = () => {
     void refetch();
@@ -85,7 +83,7 @@ export function PostCommentsDialog({
     <PostCommentsSheet
       isOpen={isOpen}
       onClose={onClose}
-      postId={post.id}
+      post={post}
       comments={comments}
       isLoading={isLoading}
       isError={isError}

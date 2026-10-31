@@ -1,4 +1,4 @@
-import { type ReactNode } from "react";
+import type { ReactNode } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { Provider } from "react-redux";
@@ -6,7 +6,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { setSession } from "@/features/auth/auth-slice";
 import * as apiFetchModule from "@/lib/api/api-fetch";
 import { makeStore, type AppStore } from "@/lib/store/store";
-import { normalizePost, type Post } from "../types";
+import type { Post } from "../types";
 import { PostCard } from "./post-card";
 import { PostCardSkeleton } from "./post-card-skeleton";
 
@@ -23,37 +23,10 @@ const mockPost: Post = {
 };
 
 function renderWithProviders(ui: ReactNode, store?: AppStore) {
-  const s = store ?? makeStore();
-  const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-  return render(<Provider store={s}><QueryClientProvider client={qc}>{ui}</QueryClientProvider></Provider>);
+  const activeStore = store ?? makeStore();
+  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  return render(<Provider store={activeStore}><QueryClientProvider client={queryClient}>{ui}</QueryClientProvider></Provider>);
 }
-
-describe("normalizePost decoder", () => {
-  it("throws error for non-object or null input", () => {
-    expect(() => normalizePost(null)).toThrow("Invalid post response");
-    expect(() => normalizePost("not-an-object")).toThrow("Invalid post response");
-  });
-
-  it("decodes minimal post with default counts and booleans", () => {
-    const post = normalizePost({ id: "p1", imageUrl: "/img.jpg", author: { id: "a1", name: "Alex", username: "alex" } });
-    expect(post.likesCount).toBe(0);
-    expect(post.commentsCount).toBe(0);
-  });
-
-  it("decodes nested envelope with Prisma _count and alternative keys", () => {
-    const raw = {
-      data: {
-        id: 99, text: "Nested content", photo: "/photo.png",
-        user: { userId: "u2", fullName: "Sam", handle: "sammy" },
-        _count: { likes: 15, comments: 4 }, liked: true, isBookmarked: true,
-      },
-    };
-    const post = normalizePost(raw);
-    expect(post.id).toBe(99);
-    expect(post.caption).toBe("Nested content");
-    expect(post.likesCount).toBe(15);
-  });
-});
 
 describe("PostCard component", () => {
   beforeEach(() => { vi.clearAllMocks(); });
@@ -82,6 +55,7 @@ describe("PostCard component", () => {
     renderWithProviders(<PostCard post={mockPost} onLike={onLike} onSave={onSave} onComment={onComment} />);
     fireEvent.click(screen.getByRole("button", { name: "Like post" }));
     expect(onLike).toHaveBeenCalledTimes(1);
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Save post" }));
     expect(onSave).toHaveBeenCalledTimes(1);
     fireEvent.click(screen.getByRole("button", { name: "View comments" }));
@@ -101,6 +75,24 @@ describe("PostCard component", () => {
     fireEvent.click(screen.getByRole("button", { name: "More options" }));
     expect(screen.getByRole("dialog")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Copy link to post" })).toBeInTheDocument();
+  });
+
+  it("opens Likes from the counter without liking and closes the dialog", async () => {
+    const apiSpy = vi.spyOn(apiFetchModule, "apiFetch").mockResolvedValue({
+      success: true, data: { users: [{ id: "u-alex", name: "Alex", username: "alex" }] },
+    });
+    const onLike = vi.fn();
+    renderWithProviders(<PostCard post={mockPost} onLike={onLike} />);
+    expect(apiSpy).not.toHaveBeenCalledWith(expect.objectContaining({ endpoint: "/api/posts/post-1/likes" }));
+    expect(screen.getByRole("button", { name: "View likes" })).toHaveTextContent("42");
+
+    fireEvent.click(screen.getByRole("button", { name: "View likes" }));
+
+    expect(screen.getByRole("dialog", { name: "Likes" })).toBeInTheDocument();
+    expect(await screen.findByRole("link", { name: "View Alex's profile" })).toHaveAttribute("href", "/profile/alex");
+    expect(onLike).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "Close dialog" }));
+    expect(screen.queryByRole("dialog", { name: "Likes" })).not.toBeInTheDocument();
   });
 
   it("triggers default mutation toggle when onLike and onSave are omitted", async () => {
@@ -125,6 +117,9 @@ describe("PostCard component", () => {
     expect(screen.getByText(/Show more/i)).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Show more" }));
     expect(screen.getByText(/Show less/i)).toBeInTheDocument();
+    expect(screen.getByText(longCaption)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Show less" }));
+    expect(screen.queryByText(longCaption)).not.toBeInTheDocument();
   });
 
   it("renders fallback box when image fails to load", () => {

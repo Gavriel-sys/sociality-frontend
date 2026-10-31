@@ -1,72 +1,24 @@
 "use client";
 
 import { Sheet } from "@/components/ui/sheet";
-import { EmptyState } from "@/components/feedback/empty-state";
-import { ErrorState } from "@/components/feedback/error-state";
-import type { Comment } from "../types";
-import { CommentInputForm } from "./comment-input-form";
-import { CommentRow } from "./comment-row";
-import { CommentRowSkeleton } from "./comment-row-skeleton";
+import { CommentPostDialogs, useCommentPostDialogs } from "./comment-post-dialogs";
+import { CommentPostFooter } from "./comment-post-footer";
+import { CommentStream } from "./comment-stream";
+import type { PostCommentsModalProps } from "./post-comments-modal";
 
-export interface PostCommentsSheetProps {
-  readonly isOpen: boolean;
-  readonly onClose: () => void;
-  readonly postId?: string | number;
-  readonly comments: readonly Comment[];
-  readonly isLoading: boolean;
-  readonly isError: boolean;
-  readonly isSubmitting?: boolean;
-  readonly onRetry?: () => void;
-  readonly onSubmitComment: (content: string) => Promise<void> | void;
-}
+export type PostCommentsSheetProps = PostCommentsModalProps;
 
-export function PostCommentsSheet({
-  isOpen,
-  onClose,
-  postId,
-  comments,
-  isLoading,
-  isError,
-  isSubmitting = false,
-  onRetry,
-  onSubmitComment,
-}: Readonly<PostCommentsSheetProps>) {
+export function PostCommentsSheet({ post, isOpen, onClose, isSubmitting, onSubmitComment, ...stream }: Readonly<PostCommentsSheetProps>) {
+  const dialogs = useCommentPostDialogs(onClose);
   return (
-    <Sheet isOpen={isOpen} onClose={onClose} title="Comments">
-      <div className="flex flex-col">
-        <div className="max-h-[50vh] overflow-y-auto space-y-2 pr-1">
-          {isLoading ? (
-            <div className="space-y-1 py-1" aria-label="Loading comments">
-              <CommentRowSkeleton />
-              <CommentRowSkeleton />
-              <CommentRowSkeleton />
-            </div>
-          ) : isError ? (
-            <ErrorState
-              title="Failed to load comments"
-              message="An error occurred while loading comments."
-              onRetry={onRetry}
-              className="my-2 min-h-[160px] p-4"
-            />
-          ) : comments.length === 0 ? (
-            <EmptyState
-              title="No comments yet"
-              description="Be the first to share your thoughts!"
-              className="my-2 min-h-[160px] p-4"
-            />
-          ) : (
-            <div className="divide-y divide-[#1F242F]/40" role="list" aria-label="Comments list">
-              {comments.map((comment) => (
-                <CommentRow key={comment.id} comment={comment} postId={postId} />
-              ))}
-            </div>
-          )}
-        </div>
-
-        <div className="sticky bottom-0 bg-[#0A0D12] pt-3 pb-1 border-t border-[#1F242F] mt-2">
-          <CommentInputForm onSubmit={onSubmitComment} isLoading={isSubmitting} />
-        </div>
+    <Sheet isOpen={isOpen} onClose={dialogs.closeComments} title="Comments"
+      className="flex max-h-[85dvh] flex-col overflow-hidden p-4 pb-[max(1rem,env(safe-area-inset-bottom))] [&>h2]:text-base [&>div:last-child]:flex [&>div:last-child]:min-h-0 [&>div:last-child]:flex-col"
+    >
+      <div className="min-h-0 flex-1 overflow-y-auto [scrollbar-width:thin] [scrollbar-color:#1F242F_transparent]">
+        <CommentStream postId={post.id} {...stream} />
       </div>
+      <CommentPostFooter post={post} isSubmitting={isSubmitting} onSubmitComment={onSubmitComment} onViewLikes={dialogs.openLikes} onShare={dialogs.openOptions} />
+      <CommentPostDialogs post={post} activeDialog={dialogs.activeDialog} onClose={dialogs.closePostDialog} onDeleted={onClose} />
     </Sheet>
   );
 }

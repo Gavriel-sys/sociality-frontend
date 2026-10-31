@@ -25,11 +25,11 @@ function useAuthUser() {
 
 function PostDetailContent({ params }: Readonly<PostDetailPageProps>) {
   const router = useRouter();
-  const unwrapped = typeof (params as Promise<{ id: string }>).then === "function"
+  const routeParams = typeof (params as Promise<{ id: string }>).then === "function"
     ? use(params as Promise<{ id: string }>)
     : (params as { id: string });
 
-  const postId = decodeURIComponent(unwrapped?.id ?? "");
+  const postId = decodeURIComponent(routeParams.id);
   const authUser = useAuthUser();
   const { post, isLoading, isError, error } = usePostDetail(postId);
 
@@ -45,8 +45,8 @@ function PostDetailContent({ params }: Readonly<PostDetailPageProps>) {
           <ErrorState
             title="Post not found"
             message={error?.message ?? "The post you are looking for does not exist or has been removed."}
-            onRetry={() => router.push("/explore")}
-            retryLabel="Explore posts"
+            onRetry={() => router.push("/feed")}
+            retryLabel="Back to feed"
           />
         ) : (
           <PostDetailView post={post} />

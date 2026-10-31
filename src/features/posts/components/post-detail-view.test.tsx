@@ -1,4 +1,4 @@
-import { type ReactNode } from "react";
+import type { ReactNode } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { Provider } from "react-redux";
@@ -33,9 +33,9 @@ const mockComments = [
 ];
 
 function renderWithProviders(ui: ReactNode, store?: AppStore) {
-  const s = store ?? makeStore();
-  const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-  return render(<Provider store={s}><QueryClientProvider client={qc}>{ui}</QueryClientProvider></Provider>);
+  const activeStore = store ?? makeStore();
+  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  return render(<Provider store={activeStore}><QueryClientProvider client={queryClient}>{ui}</QueryClientProvider></Provider>);
 }
 
 describe("PostDetailView component", () => {
@@ -68,6 +68,19 @@ describe("PostDetailView component", () => {
     await waitFor(() => {
       expect(screen.getByText("No comments yet")).toBeInTheDocument();
     });
+  });
+
+  it("opens Likes from a zero counter and shows the empty message", async () => {
+    const apiSpy = vi.spyOn(apiFetchModule, "apiFetch").mockResolvedValue({ success: true, data: { users: [] } });
+    renderWithProviders(<PostDetailView post={{ ...mockPost, likesCount: 0 }} />);
+    expect(apiSpy).not.toHaveBeenCalledWith(expect.objectContaining({ endpoint: "/api/posts/p-10/likes" }));
+    expect(screen.getByRole("button", { name: "View likes" })).toHaveTextContent("0");
+
+    fireEvent.click(screen.getByRole("button", { name: "View likes" }));
+
+    expect(screen.getByRole("dialog", { name: "Likes" })).toBeInTheDocument();
+    expect(await screen.findByText("No likes on this post yet")).toBeInTheDocument();
+    expect(apiSpy).toHaveBeenCalledWith(expect.objectContaining({ endpoint: "/api/posts/p-10/likes", method: "GET" }));
   });
 
   it("triggers like mutation when like button is clicked", async () => {

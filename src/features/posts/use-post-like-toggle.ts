@@ -1,15 +1,17 @@
 "use client";
 
-import { useContext, useMemo, useRef, useState, useSyncExternalStore } from "react";
-import { QueryClient, QueryClientContext, useMutation } from "@tanstack/react-query";
+import { useRef, useState, useSyncExternalStore } from "react";
+import { notifyManager, useMutation } from "@tanstack/react-query";
 import { usePathname, useRouter } from "next/navigation";
-import { ReactReduxContext } from "react-redux";
+import { myPostCollectionKey } from "@/features/profile/my-post-collections";
 import { apiFetch } from "@/lib/api/api-fetch";
 import {
   findPostInCache, invalidatePostQueries, isPostQueryKey,
   restorePostQueries, snapshotPostQueries, updatePostInCache,
 } from "./post-cache-utils";
 import type { Post } from "./types";
+import { normalizePost } from "./types";
+import { usePostQueryClient, usePostSession } from "./use-post-context";
 
 export interface UsePostLikeToggleOptions {
   readonly id: string | number;
@@ -24,45 +26,31 @@ export interface UsePostLikeToggleResult {
   readonly likesCount: number;
 }
 
-function useAuthSnapshot() {
-  const reduxContext = useContext(ReactReduxContext);
-  const authState = useSyncExternalStore(
-    (cb) => (reduxContext ? reduxContext.store.subscribe(cb) : () => {}),
-    () => (reduxContext ? (reduxContext.store.getState() as { auth?: { token?: string | null; sessionId?: string | null } })?.auth : undefined),
-    () => undefined,
-  );
-  return { token: authState?.token ?? undefined, sessionId: authState?.sessionId ?? undefined };
-}
-
-function useSafeNavigation() {
-  const router = useRouter();
-  const raw = usePathname();
-  const pathname = typeof raw === "string" && raw.length > 0 ? raw : "/";
-  return { router, pathname };
-}
-
-function useSafeQueryClient(): QueryClient {
-  const client = useContext(QueryClientContext);
-  const fallback = useMemo(() => new QueryClient(), []);
-  return client ?? fallback;
-}
-
 export function usePostLikeToggle(options: Readonly<UsePostLikeToggleOptions>): UsePostLikeToggleResult {
-  const queryClient = useSafeQueryClient();
-  const { router, pathname } = useSafeNavigation();
-  const { token } = useAuthSnapshot();
+  const queryClient = usePostQueryClient();
+  const router = useRouter();
+  const pathname = usePathname() || "/";
+  const { token, sessionId } = usePostSession();
+  const likesKey = myPostCollectionKey(sessionId ?? "unauthenticated", "likes");
   const inFlightRef = useRef(false);
   const [isMutating, setIsMutating] = useState(false);
   const [optimistic, setOptimistic] = useState<{ isLiked: boolean; likesCount: number } | undefined>(undefined);
 
   const cachedPost = useSyncExternalStore(
-    (cb) => queryClient.getQueryCache().subscribe(cb),
+    (notify) => queryClient.getQueryCache().subscribe(notifyManager.batchCalls(notify)),
     () => findPostInCache(queryClient, options.id),
     () => undefined,
   );
 
-  const resolvedIsLiked = optimistic !== undefined ? optimistic.isLiked : (cachedPost !== undefined ? cachedPost.isLiked : options.isLiked);
-  const resolvedLikesCount = optimistic !== undefined ? optimistic.likesCount : (cachedPost !== undefined ? cachedPost.likesCount : options.likesCount);
+  const likedPosts = useSyncExternalStore(
+    (notify) => queryClient.getQueryCache().subscribe(notifyManager.batchCalls(notify)),
+    () => queryClient.getQueryData<readonly Post[]>(likesKey),
+    () => undefined,
+  );
+  const likedPost = likedPosts?.find((post) => String(post.id) === String(options.id));
+  const persistedIsLiked = likedPosts === undefined ? undefined : likedPost !== undefined;
+  const resolvedIsLiked = optimistic?.isLiked ?? persistedIsLiked ?? cachedPost?.isLiked ?? options.isLiked;
+  const resolvedLikesCount = optimistic?.likesCount ?? likedPost?.likesCount ?? cachedPost?.likesCount ?? options.likesCount;
 
   const mutation = useMutation<unknown, Error, boolean, { previousQueries: readonly [readonly unknown[], unknown][] }>({
     mutationFn: (wasLiked: boolean) =>
@@ -76,21 +64,26 @@ export function usePostLikeToggle(options: Readonly<UsePostLikeToggleOptions>): 
       const previousQueries = snapshotPostQueries(queryClient);
       const nextIsLiked = !wasLiked;
       const nextCount = nextIsLiked ? resolvedLikesCount + 1 : Math.max(0, resolvedLikesCount - 1);
+      const post = { ...normalizePost({ ...options, ...cachedPost }), isLiked: nextIsLiked, likesCount: nextCount };
 
       setOptimistic({ isLiked: nextIsLiked, likesCount: nextCount });
       if (findPostInCache(queryClient, options.id) === undefined) {
-        queryClient.setQueryData(["posts", String(options.id)], { id: options.id, isLiked: nextIsLiked, likesCount: nextCount } as unknown as Post);
+        queryClient.setQueryData(["posts", String(options.id)], post);
       }
-      updatePostInCache(queryClient, options.id, (p) => ({ ...p, isLiked: nextIsLiked, likesCount: nextCount }));
+      updatePostInCache(queryClient, options.id, (cached) => ({ ...cached, isLiked: nextIsLiked, likesCount: nextCount }));
+      queryClient.setQueryData<readonly Post[]>(likesKey, (previous) => {
+        const otherPosts = (previous ?? []).filter((liked) => String(liked.id) !== String(options.id));
+        return nextIsLiked ? [post, ...otherPosts] : otherPosts;
+      });
       return { previousQueries };
     },
     onError: (_err, _vars, ctx) => {
       setOptimistic(undefined);
       restorePostQueries(queryClient, ctx?.previousQueries);
     },
-    onSettled: () => {
+    onSettled: async () => {
+      await invalidatePostQueries(queryClient);
       setOptimistic(undefined);
-      invalidatePostQueries(queryClient);
     },
   }, queryClient);
 

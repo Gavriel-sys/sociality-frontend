@@ -2,10 +2,12 @@ import type { QueryClient } from "@tanstack/react-query";
 import type { Post } from "./types";
 
 export function isPostQueryKey(queryKey: readonly unknown[]): boolean {
-  return queryKey.some((p) => {
-    if (typeof p !== "string") return false;
-    const l = p.toLowerCase();
-    return l.includes("feed") || l.includes("explore") || l.includes("post") || l.includes("save") || l.includes("like");
+  const isPostLikesQuery = queryKey[0] === "public" && queryKey[1] === "post" && queryKey[3] === "likes";
+  if (isPostLikesQuery) return false;
+  return queryKey.some((part) => {
+    if (typeof part !== "string") return false;
+    const label = part.toLowerCase();
+    return label.includes("feed") || label.includes("explore") || label.includes("post") || label.includes("save") || label.includes("like");
   });
 }
 

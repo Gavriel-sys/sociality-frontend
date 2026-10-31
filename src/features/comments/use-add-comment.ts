@@ -78,7 +78,7 @@ export function useAddComment(postId: string | number): UseAddCommentResult {
       apiFetch<Comment>({
         endpoint: `/api/posts/${encodeURIComponent(String(postId))}/comments`,
         method: "POST",
-        body: { content },
+        body: { text: content },
         token,
         decoder: normalizeComment,
       }),
@@ -122,9 +122,9 @@ export function useAddComment(postId: string | number): UseAddCommentResult {
     addComment: executeAdd,
     mutate: (content) => { void executeAdd(content); },
     mutateAsync: async (content) => {
-      const res = await executeAdd(content);
-      if (res === undefined) throw new Error("Failed to add comment: unauthenticated or in-flight");
-      return res;
+      const comment = await executeAdd(content);
+      if (comment === undefined) throw new Error("Failed to add comment: unauthenticated or in-flight");
+      return comment;
     },
     isLoading: mutation.isPending,
     isPending: mutation.isPending,

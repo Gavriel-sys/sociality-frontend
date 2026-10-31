@@ -38,7 +38,7 @@ function resolveAuthor(source: Record<string, unknown>): PostAuthor {
   const rawAvatar = candidate.avatarUrl ?? candidate.avatar ?? source.authorAvatar;
 
   return {
-    id: (rawId ?? "") as string | number,
+    id: rawId as string | number,
     name: typeof rawName === "string" ? rawName : "",
     username: typeof rawUsername === "string" ? rawUsername : "",
     avatarUrl: typeof rawAvatar === "string" && rawAvatar.length > 0 ? rawAvatar : undefined,
@@ -58,8 +58,7 @@ export function normalizePost(raw: unknown): Post {
     throw new Error("Invalid post response: expected object.");
   }
 
-  const envelope = raw as Record<string, unknown>;
-  const source = resolveEnvelope(envelope);
+  const source = resolveEnvelope(raw as Record<string, unknown>);
   const counts = (source._count ?? {}) as Record<string, unknown>;
 
   const imageUrl = typeof source.imageUrl === "string" ? source.imageUrl
@@ -84,9 +83,9 @@ export function normalizePost(raw: unknown): Post {
     imageUrl,
     createdAt,
     author: resolveAuthor(source),
-    likesCount: resolveCounter(source.likesCount ?? source.likes_count, counts.likes),
-    commentsCount: resolveCounter(source.commentsCount ?? source.comments_count, counts.comments),
-    isLiked: Boolean(source.isLiked ?? source.liked ?? source.is_liked),
+    likesCount: resolveCounter(source.likeCount ?? source.likesCount ?? source.likes_count, counts.likes),
+    commentsCount: resolveCounter(source.commentCount ?? source.commentsCount ?? source.comments_count, counts.comments),
+    isLiked: Boolean(source.isLiked ?? source.likedByMe ?? source.liked ?? source.is_liked),
     isSaved: Boolean(source.isSaved ?? source.saved ?? source.is_saved ?? source.isBookmarked),
   };
 }

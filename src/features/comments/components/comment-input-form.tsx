@@ -1,9 +1,9 @@
 "use client";
 
-import { useState, type ChangeEvent, type FormEvent } from "react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { commentInputSchema } from "../types";
+import { CommentEmojiButton } from "./comment-emoji-button";
+import { useCommentInput } from "./use-comment-input";
 
 export interface CommentInputFormProps {
   readonly onSubmit: (content: string) => Promise<void> | void;
@@ -12,57 +12,14 @@ export interface CommentInputFormProps {
   readonly className?: string;
 }
 
-export function CommentInputForm({
-  onSubmit,
-  isLoading = false,
-  placeholder = "Add a comment...",
-  className,
-}: Readonly<CommentInputFormProps>) {
-  const [content, setContent] = useState("");
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
-
-  const trimmed = content.trim();
-  const isBusy = isLoading || isSubmitting;
-  const isSubmitDisabled = trimmed.length === 0 || trimmed.length > 500 || isBusy;
-
-  const handleChange = (event: ChangeEvent<HTMLInputElement>) => {
-    setContent(event.target.value);
-    if (errorMessage) {
-      setErrorMessage(null);
-    }
-  };
-
-  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    const validation = commentInputSchema.safeParse(trimmed);
-    if (!validation.success) {
-      setErrorMessage(validation.error.issues[0]?.message ?? "Comment cannot be empty");
-      return;
-    }
-
-    setIsSubmitting(true);
-    setErrorMessage(null);
-    try {
-      await onSubmit(trimmed);
-      setContent("");
-    } catch (error) {
-      if (error instanceof Error) {
-        setErrorMessage(error.message);
-      }
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
+export function CommentInputForm({ onSubmit, isLoading, placeholder = "Add a comment...", className }: Readonly<CommentInputFormProps>) {
+  const { content, inputRef, errorMessage, isBusy, isSubmitDisabled, handleChange, handleSubmit, insertEmoji } = useCommentInput({ onSubmit, isLoading });
   return (
-    <form
-      aria-label="Add a comment"
-      onSubmit={handleSubmit}
-      className={cn("flex w-full flex-col gap-1.5", className)}
-    >
+    <form aria-label="Add a comment" onSubmit={handleSubmit} className={cn("flex w-full flex-col gap-1.5", className)}>
       <div className="relative flex w-full items-center">
+        <CommentEmojiButton disabled={isBusy} onSelect={insertEmoji} />
         <input
+          ref={inputRef}
           type="text"
           value={content}
           onChange={handleChange}
@@ -71,31 +28,17 @@ export function CommentInputForm({
           aria-label={placeholder}
           aria-invalid={errorMessage ? "true" : undefined}
           className={cn(
-            "h-11 min-h-[44px] w-full rounded-full border bg-[#0A0D12] pl-4 pr-20 text-sm text-[#FDFDFD]",
-            "placeholder-[#A4A7AE]/60 transition-colors",
-            "outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-black",
-            errorMessage
-              ? "border-[#B41759] focus-visible:border-[#B41759] focus-visible:ring-[#B41759]"
-              : "border-[#1F242F] focus-visible:border-transparent focus-visible:ring-[#7F51F9]",
+            "h-12 w-full rounded-xl border bg-[#0A0D12] pl-14 pr-20 text-base text-[#FDFDFD]",
+            "placeholder-[#A4A7AE]/60 transition-colors outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-black",
+            errorMessage ? "border-[#B41759] focus-visible:ring-[#B41759]" : "border-[#1F242F] focus-visible:ring-[#7F51F9]",
             "disabled:cursor-not-allowed disabled:opacity-50",
           )}
         />
-        <Button
-          type="submit"
-          variant="primary"
-          size="sm"
-          isLoading={isBusy}
-          disabled={isSubmitDisabled}
-          className="absolute right-1.5 h-8 min-h-[32px] px-3.5 text-xs font-semibold rounded-full"
-        >
-          Post
-        </Button>
+        <Button type="submit" variant="ghost" size="sm" isLoading={isBusy} disabled={isSubmitDisabled}
+          className="absolute right-1 rounded-lg px-3 text-sm font-semibold text-[#7F51F9] disabled:text-[#A4A7AE]"
+        >Post</Button>
       </div>
-      {errorMessage ? (
-        <p role="alert" className="px-3 text-xs text-[#B41759]">
-          {errorMessage}
-        </p>
-      ) : undefined}
+      {errorMessage && <p role="alert" className="px-3 text-xs text-[#B41759]">{errorMessage}</p>}
     </form>
   );
 }

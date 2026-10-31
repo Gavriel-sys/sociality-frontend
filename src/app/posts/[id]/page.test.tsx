@@ -44,7 +44,7 @@ describe("PostDetailPage route (/posts/[id])", () => {
     expect(screen.getByRole("status", { name: "Loading post" })).toBeInTheDocument();
   });
 
-  it("renders 404 error state and navigates to /explore when post not found", async () => {
+  it("renders 404 error state and navigates to /feed when post not found", async () => {
     vi.spyOn(apiFetchModule, "apiFetch").mockRejectedValue(new Error("Post not found"));
     await act(async () => {
       renderWithProviders(<PostDetailPage params={Promise.resolve({ id: "p-nonexistent" })} />);
@@ -54,9 +54,8 @@ describe("PostDetailPage route (/posts/[id])", () => {
       expect(screen.getByRole("heading", { name: "Post not found" })).toBeInTheDocument();
     });
 
-    const exploreButton = screen.getByRole("button", { name: "Explore posts" });
-    fireEvent.click(exploreButton);
-    expect(mockPush).toHaveBeenCalledWith("/explore");
+    fireEvent.click(screen.getByRole("button", { name: "Back to feed" }));
+    expect(mockPush).toHaveBeenCalledWith("/feed");
   });
 
   it("renders loaded PostDetailView with author, caption, and media when post exists", async () => {

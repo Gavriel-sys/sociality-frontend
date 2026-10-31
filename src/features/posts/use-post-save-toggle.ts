@@ -1,15 +1,17 @@
 "use client";
 
-import { useContext, useMemo, useRef, useState, useSyncExternalStore } from "react";
-import { QueryClient, QueryClientContext, useMutation } from "@tanstack/react-query";
+import { useRef, useState, useSyncExternalStore } from "react";
+import { notifyManager, useMutation } from "@tanstack/react-query";
 import { usePathname, useRouter } from "next/navigation";
-import { ReactReduxContext } from "react-redux";
+import { myPostCollectionKey } from "@/features/profile/my-post-collections";
 import { apiFetch } from "@/lib/api/api-fetch";
 import {
   findPostInCache, invalidatePostQueries, isPostQueryKey,
   restorePostQueries, snapshotPostQueries, updatePostInCache,
 } from "./post-cache-utils";
 import type { Post } from "./types";
+import { normalizePost } from "./types";
+import { usePostQueryClient, usePostSession } from "./use-post-context";
 
 export interface UsePostSaveToggleOptions {
   readonly id: string | number;
@@ -22,44 +24,29 @@ export interface UsePostSaveToggleResult {
   readonly isSaved: boolean;
 }
 
-function useAuthSnapshot() {
-  const reduxContext = useContext(ReactReduxContext);
-  const authState = useSyncExternalStore(
-    (cb) => (reduxContext ? reduxContext.store.subscribe(cb) : () => {}),
-    () => (reduxContext ? (reduxContext.store.getState() as { auth?: { token?: string | null; sessionId?: string | null } })?.auth : undefined),
-    () => undefined,
-  );
-  return { token: authState?.token ?? undefined, sessionId: authState?.sessionId ?? undefined };
-}
-
-function useSafeNavigation() {
-  const router = useRouter();
-  const raw = usePathname();
-  const pathname = typeof raw === "string" && raw.length > 0 ? raw : "/";
-  return { router, pathname };
-}
-
-function useSafeQueryClient(): QueryClient {
-  const client = useContext(QueryClientContext);
-  const fallback = useMemo(() => new QueryClient(), []);
-  return client ?? fallback;
-}
-
 export function usePostSaveToggle(options: Readonly<UsePostSaveToggleOptions>): UsePostSaveToggleResult {
-  const queryClient = useSafeQueryClient();
-  const { router, pathname } = useSafeNavigation();
-  const { token } = useAuthSnapshot();
+  const queryClient = usePostQueryClient();
+  const router = useRouter();
+  const pathname = usePathname() || "/";
+  const { token, sessionId } = usePostSession();
+  const savedKey = myPostCollectionKey(sessionId ?? "unauthenticated", "saved");
   const inFlightRef = useRef(false);
   const [isMutating, setIsMutating] = useState(false);
   const [optimistic, setOptimistic] = useState<boolean | undefined>(undefined);
 
   const cachedPost = useSyncExternalStore(
-    (cb) => queryClient.getQueryCache().subscribe(cb),
+    (notify) => queryClient.getQueryCache().subscribe(notifyManager.batchCalls(notify)),
     () => findPostInCache(queryClient, options.id),
     () => undefined,
   );
 
-  const resolvedIsSaved = optimistic !== undefined ? optimistic : (cachedPost !== undefined ? cachedPost.isSaved : options.isSaved);
+  const savedPosts = useSyncExternalStore(
+    (notify) => queryClient.getQueryCache().subscribe(notifyManager.batchCalls(notify)),
+    () => queryClient.getQueryData<readonly Post[]>(savedKey),
+    () => undefined,
+  );
+  const persistedIsSaved = savedPosts?.some((post) => String(post.id) === String(options.id));
+  const resolvedIsSaved = optimistic ?? persistedIsSaved ?? cachedPost?.isSaved ?? options.isSaved;
 
   const mutation = useMutation<unknown, Error, boolean, { previousQueries: readonly [readonly unknown[], unknown][] }>({
     mutationFn: (wasSaved: boolean) =>
@@ -72,21 +59,26 @@ export function usePostSaveToggle(options: Readonly<UsePostSaveToggleOptions>): 
       await queryClient.cancelQueries({ predicate: (q) => isPostQueryKey(q.queryKey) });
       const previousQueries = snapshotPostQueries(queryClient);
       const nextIsSaved = !wasSaved;
+      const post = normalizePost({ ...options, ...cachedPost });
 
       setOptimistic(nextIsSaved);
       if (findPostInCache(queryClient, options.id) === undefined) {
-        queryClient.setQueryData(["posts", String(options.id)], { id: options.id, isSaved: nextIsSaved } as unknown as Post);
+        queryClient.setQueryData(["posts", String(options.id)], { ...post, isSaved: nextIsSaved });
       }
-      updatePostInCache(queryClient, options.id, (p) => ({ ...p, isSaved: nextIsSaved }));
+      updatePostInCache(queryClient, options.id, (cached) => ({ ...cached, isSaved: nextIsSaved }));
+      queryClient.setQueryData<readonly Post[]>(savedKey, (previous) => {
+        const otherPosts = (previous ?? []).filter((saved) => String(saved.id) !== String(options.id));
+        return nextIsSaved ? [{ ...post, isSaved: true }, ...otherPosts] : otherPosts;
+      });
       return { previousQueries };
     },
     onError: (_err, _vars, ctx) => {
       setOptimistic(undefined);
       restorePostQueries(queryClient, ctx?.previousQueries);
     },
-    onSettled: () => {
+    onSettled: async () => {
+      await invalidatePostQueries(queryClient);
       setOptimistic(undefined);
-      invalidatePostQueries(queryClient);
     },
   }, queryClient);
 

@@ -2,17 +2,18 @@
 
 import { useState } from "react";
 import { Avatar } from "@/components/ui/avatar";
-import {
-  BookmarkFilledIcon, BookmarkIcon, HeartFilledIcon, HeartIcon,
-  ImageIcon, MessageCircleIcon, MoreHorizontalIcon, ShareIcon,
-} from "@/components/ui/icons";
+import { ImageIcon, MoreHorizontalIcon } from "@/components/ui/icons";
 import { Skeleton } from "@/components/ui/skeleton";
 import { PostCommentsDialog } from "@/features/comments/components/post-comments-dialog";
 import { formatRelativeTime } from "@/features/posts/date-utils";
 import type { Post } from "@/features/posts/types";
 import { usePostLikeToggle } from "@/features/posts/use-post-like-toggle";
+import { usePostLikes } from "@/features/posts/use-post-likes";
 import { usePostSaveToggle } from "@/features/posts/use-post-save-toggle";
+import { useMySavedPosts } from "@/features/profile/use-my-collections";
 import { cn } from "@/lib/utils";
+import { PostActionBar } from "./post-action-bar";
+import { PostLikesDialog } from "./post-likes-dialog";
 import { PostOptionsDialog } from "./post-options-dialog";
 
 export interface PostCardProps {
@@ -27,25 +28,29 @@ export interface PostCardProps {
 export function PostCard({ post, onLike, onComment, onSave, onShare, className }: Readonly<PostCardProps>) {
   const [isImageLoaded, setIsImageLoaded] = useState(false);
   const [hasImageError, setHasImageError] = useState(false);
-  const [isExpanded, setIsExpanded] = useState(false);
+  const [isCaptionExpanded, setIsCaptionExpanded] = useState(false);
   const [isCommentsOpen, setIsCommentsOpen] = useState(false);
   const [isOptionsOpen, setIsOptionsOpen] = useState(false);
+  const [isLikesOpen, setIsLikesOpen] = useState(false);
+  const { users: likedUsers, isLoading: isLikesLoading, isError: isLikesError, refetch: refetchLikes } = usePostLikes(post.id, isLikesOpen);
 
   const likeToggle = usePostLikeToggle(post);
-  const saveToggle = usePostSaveToggle(post);
+  const { data: savedPosts } = useMySavedPosts();
+  const savedPost = savedPosts?.find((saved) => String(saved.id) === String(post.id));
+  const saveToggle = usePostSaveToggle(savedPost ?? post);
 
   const handleLike = onLike ?? likeToggle.toggleLike;
   const handleComment = onComment ?? (() => setIsCommentsOpen(true));
   const handleSave = onSave ?? saveToggle.toggleSave;
   const isLiked = onLike ? post.isLiked : likeToggle.isLiked;
   const likesCount = onLike ? post.likesCount : likeToggle.likesCount;
-  const isSaved = onSave ? post.isSaved : saveToggle.isSaved;
+  const isSaved = onSave ? (savedPost !== undefined || post.isSaved) : saveToggle.isSaved;
 
   const isLongCaption = post.caption.length > 120;
-  const captionText = isLongCaption && !isExpanded ? `${post.caption.slice(0, 120)}...` : post.caption;
+  const captionText = isLongCaption && !isCaptionExpanded ? `${post.caption.slice(0, 120)}...` : post.caption;
   const isImageUnavailable = hasImageError || !post.imageUrl;
   const authorIdentity = post.author.name || post.author.username;
-  const actionBtnClass = "inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-lg text-[#A4A7AE] transition-colors hover:text-[#FDFDFD] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#B41759]";
+  const optionsButtonClassName = "inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-lg text-[#A4A7AE] transition-colors hover:text-[#FDFDFD] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#B41759]";
 
   return (
     <>
@@ -65,7 +70,7 @@ export function PostCard({ post, onLike, onComment, onSave, onShare, className }
               </div>
             </div>
           </div>
-          <button type="button" aria-label="More options" onClick={() => setIsOptionsOpen(true)} className={actionBtnClass}>
+          <button type="button" aria-label="More options" onClick={() => setIsOptionsOpen(true)} className={optionsButtonClassName}>
             <MoreHorizontalIcon className="h-5 w-5" />
           </button>
         </header>
@@ -89,24 +94,7 @@ export function PostCard({ post, onLike, onComment, onSave, onShare, className }
           )}
         </div>
 
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-1">
-            <button type="button" aria-label={isLiked ? "Unlike post" : "Like post"} onClick={handleLike} className={cn(actionBtnClass, "gap-1.5 px-2")}>
-              {isLiked ? <HeartFilledIcon className="h-5 w-5 text-[#B41759]" /> : <HeartIcon className="h-5 w-5 text-[#FDFDFD]" />}
-              <span className={cn("text-xs font-semibold", isLiked ? "text-[#B41759]" : "text-[#A4A7AE]")}>{likesCount}</span>
-            </button>
-            <button type="button" aria-label="View comments" onClick={handleComment} className={cn(actionBtnClass, "gap-1.5 px-2")}>
-              <MessageCircleIcon className="h-5 w-5 text-[#FDFDFD]" />
-              <span className="text-xs font-semibold text-[#A4A7AE]">{post.commentsCount}</span>
-            </button>
-            <button type="button" aria-label="Share post" onClick={onShare} className={actionBtnClass}>
-              <ShareIcon className="h-5 w-5 text-[#FDFDFD]" />
-            </button>
-          </div>
-          <button type="button" aria-label={isSaved ? "Remove from saved" : "Save post"} onClick={handleSave} className={actionBtnClass}>
-            {isSaved ? <BookmarkFilledIcon className="h-5 w-5 text-[#FDFDFD]" /> : <BookmarkIcon className="h-5 w-5 text-[#FDFDFD]" />}
-          </button>
-        </div>
+        <PostActionBar isLiked={isLiked} likesCount={likesCount} commentsCount={post.commentsCount} isSaved={isSaved} onLike={handleLike} onViewLikes={() => setIsLikesOpen(true)} onComment={handleComment} onSave={handleSave} onShare={onShare} />
 
         {post.caption && (
           <div className="text-sm leading-relaxed text-[#FDFDFD]">
@@ -115,10 +103,10 @@ export function PostCard({ post, onLike, onComment, onSave, onShare, className }
             {isLongCaption && (
               <button
                 type="button"
-                onClick={() => setIsExpanded((prev) => !prev)}
-                className="ml-1 text-xs font-medium text-[#A4A7AE] underline hover:text-[#FDFDFD] focus-visible:outline-none"
+                onClick={() => setIsCaptionExpanded((wasExpanded) => !wasExpanded)}
+                className="text-[#7F51F9] font-semibold text-sm hover:underline cursor-pointer ml-1 inline-block"
               >
-                {isExpanded ? "Show less" : "Show more"}
+                {isCaptionExpanded ? "Show less" : "Show more"}
               </button>
             )}
           </div>
@@ -127,6 +115,14 @@ export function PostCard({ post, onLike, onComment, onSave, onShare, className }
 
       <PostCommentsDialog post={post} isOpen={isCommentsOpen} onClose={() => setIsCommentsOpen(false)} />
       <PostOptionsDialog post={post} isOpen={isOptionsOpen} onClose={() => setIsOptionsOpen(false)} />
+      <PostLikesDialog
+        isOpen={isLikesOpen}
+        onClose={() => setIsLikesOpen(false)}
+        users={likedUsers}
+        isLoading={isLikesLoading}
+        isError={isLikesError}
+        onRetry={() => void refetchLikes()}
+      />
     </>
   );
 }

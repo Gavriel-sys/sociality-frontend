@@ -28,9 +28,9 @@ const mockComments: readonly Comment[] = [
 ];
 
 function renderWithProviders(ui: ReactNode, store?: AppStore) {
-  const s = store ?? makeStore();
-  const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-  return render(<Provider store={s}><QueryClientProvider client={qc}>{ui}</QueryClientProvider></Provider>);
+  const activeStore = store ?? makeStore();
+  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  return render(<Provider store={activeStore}><QueryClientProvider client={queryClient}>{ui}</QueryClientProvider></Provider>);
 }
 
 describe("PostCommentsDialog", () => {
@@ -60,7 +60,8 @@ describe("PostCommentsDialog", () => {
     await waitFor(() => {
       expect(screen.getByText("No comments yet")).toBeInTheDocument();
     });
-    expect(screen.getByText("Be the first to share your thoughts!")).toBeInTheDocument();
+    expect(screen.getByRole("status")).toHaveTextContent("No comments yet");
+    expect(screen.queryByText("Be the first to share your thoughts!")).not.toBeInTheDocument();
   });
 
   it("renders loaded comments list when comments exist", async () => {
@@ -98,7 +99,7 @@ describe("PostCommentsDialog", () => {
       expect(apiSpy).toHaveBeenCalledWith(expect.objectContaining({
         endpoint: "/api/posts/p-100/comments",
         method: "POST",
-        body: { content: "Great vibes!" },
+        body: { text: "Great vibes!" },
       }));
     });
   });

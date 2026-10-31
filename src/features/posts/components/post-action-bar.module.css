@@ -1,0 +1,48 @@
+.group {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.action {
+  position: relative;
+  display: inline-flex;
+  height: 30px;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.action::after {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: max(100%, 44px);
+  height: 44px;
+  content: "";
+  transform: translate(-50%, -50%);
+}
+
+.counter {
+  font-family: "SF Pro Text", "SF Pro Display", var(--font-sans);
+  font-size: 16px;
+  font-weight: 600;
+  line-height: 30px;
+  letter-spacing: -0.02em;
+}
+
+.likeGroup {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.likeControl::after {
+  width: 100%;
+}
+
+@media (min-width: 48rem) {
+  .group {
+    gap: 16px;
+  }
+}
