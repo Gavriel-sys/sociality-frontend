@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   ApiConfigError,
   buildApiUrl,
@@ -111,15 +111,11 @@ describe("validateApiBaseUrl", () => {
 });
 
 describe("getApiBaseUrl", () => {
-  const originalEnv = process.env.NEXT_PUBLIC_API_BASE_URL;
-
   beforeEach(() => {
-    process.env.NEXT_PUBLIC_API_BASE_URL = "https://example.com";
+    vi.stubEnv("NEXT_PUBLIC_API_BASE_URL", "https://example.com");
   });
 
-  afterEach(() => {
-    process.env.NEXT_PUBLIC_API_BASE_URL = originalEnv;
-  });
+  afterEach(() => vi.unstubAllEnvs());
 
   it("reads and validates NEXT_PUBLIC_API_BASE_URL from environment", () => {
     // Arrange & Act
@@ -129,12 +125,12 @@ describe("getApiBaseUrl", () => {
     expect(result).toBe("https://example.com");
   });
 
-  it("throws when environment variable is unset", () => {
+  it("uses the production API when environment variable is unset", () => {
     // Arrange
-    delete process.env.NEXT_PUBLIC_API_BASE_URL;
+    vi.stubEnv("NEXT_PUBLIC_API_BASE_URL", undefined);
 
     // Act & Assert
-    expect(() => getApiBaseUrl()).toThrow(ApiConfigError);
+    expect(getApiBaseUrl()).toBe("https://be-social-media-api-production.up.railway.app");
   });
 });
 

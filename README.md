@@ -86,7 +86,7 @@ Create a `.env.local` file in the project root based on `.env.example`:
 cp .env.example .env.local
 ```
 
-Populate the required environment variable:
+The app uses the public Sociality production API by default. To override it for another backend, set:
 
 ```env
 NEXT_PUBLIC_API_BASE_URL=https://be-social-media-api-production.up.railway.app
@@ -94,12 +94,22 @@ NEXT_PUBLIC_API_BASE_URL=https://be-social-media-api-production.up.railway.app
 
 #### Configuration Validation Invariants
 
-The application validates `NEXT_PUBLIC_API_BASE_URL` at runtime via `src/lib/config/api-config.ts`:
+The application resolves and validates the API origin via `src/lib/config/api-config.ts`:
+
+- Unset or blank overrides use the public production API; invalid non-empty overrides still fail validation.
 - Must be an HTTP or HTTPS root origin (e.g. `https://be-social-media-api-production.up.railway.app` or `http://127.0.0.1:3000`).
 - Trailing slashes at the root are stripped and normalized automatically.
 - Non-root paths (such as `/api`), query strings, fragments, user credentials, and pseudo-protocols (`javascript:`, `data:`) are rejected immediately with descriptive errors.
 - URL joining enforces constraints strictly to approved `/api/...` endpoints and rejects path traversal (`/..`) or scheme escapes.
 - Public environment variables never store private keys, secrets, or bearer tokens.
+
+### Deploying to Vercel
+
+Deploy with the Next.js framework preset. When `NEXT_PUBLIC_API_BASE_URL` is unset or blank, the app uses the production API shown above.
+
+For a custom backend, add `NEXT_PUBLIC_API_BASE_URL` in **Project Settings → Environment Variables**, select the intended environments (Production and/or Preview), then create a new deployment. Use the backend root origin without `/api`.
+
+The local `.env.local` file is ignored by Git and is not sent to Vercel. Next.js embeds `NEXT_PUBLIC_` values into the browser bundle during the build, so environment changes require a new deployment. See the [Next.js environment variable guide](https://nextjs.org/docs/app/guides/environment-variables).
 
 ### Available Scripts
 

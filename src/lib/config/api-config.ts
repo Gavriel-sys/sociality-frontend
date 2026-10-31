@@ -1,3 +1,5 @@
+const DEFAULT_API_BASE_URL = "https://be-social-media-api-production.up.railway.app";
+
 export class ApiConfigError extends Error {
   constructor(message: string) {
     super(message);
@@ -53,7 +55,8 @@ export function validateApiBaseUrl(rawUrl: string | undefined): string {
 }
 
 export function getApiBaseUrl(): string {
-  return validateApiBaseUrl(process.env.NEXT_PUBLIC_API_BASE_URL);
+  const configuredOrigin = process.env.NEXT_PUBLIC_API_BASE_URL?.trim();
+  return validateApiBaseUrl(configuredOrigin || DEFAULT_API_BASE_URL);
 }
 
 function assertValidEndpointPath(endpoint: string): void {
@@ -70,6 +73,6 @@ function assertValidEndpointPath(endpoint: string): void {
 
 export function buildApiUrl(endpoint: string, baseOrigin?: string): string {
   assertValidEndpointPath(endpoint);
-  const resolvedOrigin = baseOrigin !== undefined ? validateApiBaseUrl(baseOrigin) : getApiBaseUrl();
-  return `${resolvedOrigin}${endpoint}`;
+  const apiOrigin = baseOrigin !== undefined ? validateApiBaseUrl(baseOrigin) : getApiBaseUrl();
+  return `${apiOrigin}${endpoint}`;
 }
