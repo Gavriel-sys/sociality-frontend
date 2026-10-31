@@ -1,0 +1,39 @@
+.tabs {
+  gap: 24px;
+}
+
+.list {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0;
+  padding: 0;
+  border: 0;
+  border-bottom: 1px solid var(--border);
+  border-radius: 0;
+  background: transparent;
+}
+
+.tab {
+  height: 48px;
+  gap: 12px;
+  border-bottom: 2px solid transparent;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  color: var(--muted-foreground);
+  font-size: 16px;
+}
+
+.tab:hover {
+  background: transparent;
+}
+
+.tab[aria-selected="true"] {
+  border-bottom-color: var(--foreground);
+  color: var(--foreground);
+  font-weight: 700;
+}
+
+.tab[aria-selected="true"] svg {
+  fill: currentColor;
+}

@@ -3,10 +3,6 @@ import { describe, expect, it, vi } from "vitest";
 import type { UserProfile } from "../types";
 import { ProfileHeader } from "./profile-header";
 
-vi.mock("@/features/auth/use-logout", () => ({
-  useLogout: () => vi.fn(),
-}));
-
 const mockProfile: UserProfile = {
   id: "u-100",
   name: "Alex River",
@@ -15,7 +11,7 @@ const mockProfile: UserProfile = {
   avatarUrl: "https://example.com/alex.jpg",
   postsCount: 15,
   followersCount: 820,
-  followingCount: 210,
+  followingCount: 210, likesCount: 567,
 };
 
 describe("ProfileHeader", () => {
@@ -25,7 +21,7 @@ describe("ProfileHeader", () => {
     expect(
       screen.getByRole("heading", { level: 1, name: "Alex River" }),
     ).toBeInTheDocument();
-    expect(screen.getByText("@alexriver")).toBeInTheDocument();
+    expect(screen.getByText("alexriver")).toBeInTheDocument();
     expect(
       screen.getByText("Frontend engineer building social apps."),
     ).toBeInTheDocument();
@@ -36,6 +32,8 @@ describe("ProfileHeader", () => {
     expect(screen.getByText("Followers")).toBeInTheDocument();
     expect(screen.getByText("210")).toBeInTheDocument();
     expect(screen.getByText("Following")).toBeInTheDocument();
+    expect(screen.getByText("567")).toBeInTheDocument();
+    expect(screen.getByText("Likes")).toBeInTheDocument();
   });
 
   it("triggers onFollowersClick and onFollowingClick callbacks", () => {
@@ -91,13 +89,10 @@ describe("ProfileHeader", () => {
     expect(handleEditProfile).toHaveBeenCalledTimes(1);
   });
 
-  it("invokes onLogout callback when Log out button is clicked", () => {
-    const handleLogout = vi.fn();
-    render(<ProfileHeader profile={mockProfile} onLogout={handleLogout} />);
-
-    const logoutBtn = screen.getByRole("button", { name: /Log out/i });
-    fireEvent.click(logoutBtn);
-
-    expect(handleLogout).toHaveBeenCalledTimes(1);
+  it("keeps only Edit Profile and Share in the profile actions", () => {
+    render(<ProfileHeader profile={mockProfile} />);
+    expect(screen.getByRole("button", { name: "Edit profile" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Share profile" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Settings" })).not.toBeInTheDocument();
   });
 });

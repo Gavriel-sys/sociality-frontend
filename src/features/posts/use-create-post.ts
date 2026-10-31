@@ -1,12 +1,17 @@
 "use client";
 
-import { useContext, useMemo, useRef, useState, useSyncExternalStore } from "react";
-import { QueryClient, QueryClientContext, useMutation } from "@tanstack/react-query";
-import { useRouter } from "next/navigation";
+import { useContext, useRef, useState } from "react";
 import { ReactReduxContext } from "react-redux";
+import { useMutation } from "@tanstack/react-query";
+import { useRouter } from "next/navigation";
 import { invalidatePostQueries } from "./post-cache-utils";
-import { normalizePost, type Post } from "./types";
+import { normalizePost } from "./types";
+import type { Post } from "./types";
 import { apiFetch } from "@/lib/api/api-fetch";
+import { queryKeys } from "@/lib/query/query-keys";
+import { myPostCollectionKey } from "@/features/profile/my-post-collections";
+import { usePostQueryClient, usePostSession } from "./use-post-context";
+import { showPostSuccess } from "@/lib/store/ui-slice";
 
 export interface CreatePostInput {
   readonly image: File | Blob;
@@ -20,34 +25,19 @@ export interface UseCreatePostResult {
   readonly error: Error | null;
 }
 
-function useAuthSnapshot() {
-  const reduxContext = useContext(ReactReduxContext);
-  const authState = useSyncExternalStore(
-    (cb) => (reduxContext ? reduxContext.store.subscribe(cb) : () => {}),
-    () => (reduxContext ? (reduxContext.store.getState() as { auth?: { token?: string | null } })?.auth : undefined),
-    () => undefined,
-  );
-  return { token: authState?.token ?? undefined };
-}
-
 function useSafeRouter() {
   try {
     return useRouter();
   } catch {
-    return null;
+    return undefined;
   }
 }
 
-function useSafeQueryClient(): QueryClient {
-  const client = useContext(QueryClientContext);
-  const fallback = useMemo(() => new QueryClient(), []);
-  return client ?? fallback;
-}
-
 export function useCreatePost(): UseCreatePostResult {
-  const queryClient = useSafeQueryClient();
+  const queryClient = usePostQueryClient();
   const router = useSafeRouter();
-  const { token } = useAuthSnapshot();
+  const { token, sessionId } = usePostSession();
+  const reduxContext = useContext(ReactReduxContext);
   const inFlightRef = useRef(false);
   const [mutationError, setMutationError] = useState<Error | null>(null);
 
@@ -60,15 +50,17 @@ export function useCreatePost(): UseCreatePostResult {
         token,
         decoder: normalizePost,
       }),
-    onError: (err) => {
-      setMutationError(err);
+    onError: (error) => {
+      setMutationError(error);
     },
     onSuccess: async () => {
       setMutationError(null);
+      if (sessionId) {
+        await queryClient.invalidateQueries({ queryKey: myPostCollectionKey(sessionId, "posts") });
+        await queryClient.invalidateQueries({ queryKey: queryKeys.private(sessionId).me() });
+      }
       await invalidatePostQueries(queryClient);
-      await queryClient.invalidateQueries({ queryKey: ["feed"] });
-      await queryClient.invalidateQueries({ queryKey: ["explore"] });
-      await queryClient.invalidateQueries({ queryKey: ["posts"] });
+      reduxContext?.store.dispatch(showPostSuccess());
     },
   }, queryClient);
 

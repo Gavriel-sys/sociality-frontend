@@ -27,7 +27,7 @@ const mockProfile: UserProfile = {
   avatarUrl: "https://example.com/avatar.jpg",
   postsCount: 10,
   followersCount: 20,
-  followingCount: 30,
+  followingCount: 30, likesCount: 0,
 };
 
 describe("EditProfileDialog", () => {

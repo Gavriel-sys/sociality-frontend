@@ -49,8 +49,8 @@ export function useFollowToggle(options: Readonly<UseFollowToggleOptions>): UseF
   const inFlightRef = useRef(false);
   const [isMutating, setIsMutating] = useState(false);
 
-  const trimmed = options.username.trim();
-  const profileKey = queryKeys.public.userProfile(trimmed);
+  const profileUsername = options.username.trim();
+  const profileKey = queryKeys.public.userProfile(profileUsername);
 
   const cachedProfile = useSyncExternalStore(
     (cb) => queryClient.getQueryCache().subscribe(cb),
@@ -60,12 +60,12 @@ export function useFollowToggle(options: Readonly<UseFollowToggleOptions>): UseF
 
   const resolvedIsFollowing = cachedProfile !== undefined ? cachedProfile.isFollowing : options.isFollowing;
   const resolvedFollowersCount = cachedProfile !== undefined ? cachedProfile.followersCount : options.followersCount;
-  const isSelf = Boolean(currentUsername && currentUsername.trim().toLowerCase() === trimmed.toLowerCase());
+  const isSelf = Boolean(currentUsername && currentUsername.trim().toLowerCase() === profileUsername.toLowerCase());
 
   const mutation = useMutation<unknown, Error, boolean, { previousProfile?: PublicUserProfile }>({
     mutationFn: (wasFollowing: boolean) =>
       apiFetch<unknown>({
-        endpoint: `/api/follow/${encodeURIComponent(trimmed)}`,
+        endpoint: `/api/follow/${encodeURIComponent(profileUsername)}`,
         method: wasFollowing ? "DELETE" : "POST",
         token,
       }),
@@ -78,8 +78,8 @@ export function useFollowToggle(options: Readonly<UseFollowToggleOptions>): UseF
       queryClient.setQueryData<PublicUserProfile>(profileKey, (old) => {
         if (old) return { ...old, isFollowing: nextIsFollowing, followersCount: nextCount };
         return {
-          id: trimmed, name: trimmed, username: trimmed, postsCount: 0,
-          followersCount: nextCount, followingCount: 0, isFollowing: nextIsFollowing,
+          id: profileUsername, name: profileUsername, username: profileUsername, postsCount: 0,
+          followersCount: nextCount, followingCount: 0, likesCount: 0, isFollowing: nextIsFollowing,
         };
       });
       return { previousProfile };

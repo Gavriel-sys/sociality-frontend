@@ -6,6 +6,7 @@ import { Provider } from "react-redux";
 import { QueryClientProvider, type QueryClient } from "@tanstack/react-query";
 import { clearSession, setSession } from "@/features/auth/auth-slice";
 import { loadSession } from "@/features/auth/session-storage";
+import { PostSuccessNotice } from "@/features/posts/components/post-success-notice";
 import { getQueryClient } from "@/lib/query/query-client";
 import { useAppDispatch } from "@/lib/store/hooks";
 import { makeStore, type AppStore } from "@/lib/store/store";
@@ -37,13 +38,14 @@ export function AppProviders({
   queryClient,
 }: AppProvidersProps) {
   const [defaultStore] = useState(() => makeStore());
-  const activeStore = store !== undefined ? store : defaultStore;
-  const resolvedQueryClient = queryClient !== undefined ? queryClient : getQueryClient();
+  const activeStore = store ?? defaultStore;
+  const resolvedQueryClient = queryClient ?? getQueryClient();
 
   return (
     <Provider store={activeStore}>
       <QueryClientProvider client={resolvedQueryClient}>
         <SessionHydrator>{children}</SessionHydrator>
+        <PostSuccessNotice />
       </QueryClientProvider>
     </Provider>
   );

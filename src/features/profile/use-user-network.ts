@@ -3,7 +3,8 @@
 import { useContext, useSyncExternalStore } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { ReactReduxContext } from "react-redux";
-import { normalizeSearchUser, type SearchUser } from "@/features/users/types";
+import { normalizeSearchUsersResponse } from "@/features/users/types";
+import type { SearchUser } from "@/features/users/types";
 import { apiFetch } from "@/lib/api/api-fetch";
 
 const EMPTY_USERS: readonly SearchUser[] = [];
@@ -30,23 +31,12 @@ function useOptionalToken(): string | undefined {
 }
 
 function extractUsers(raw: unknown): readonly SearchUser[] {
-  if (Array.isArray(raw)) {
-    return raw.map(normalizeSearchUser);
-  }
-  if (typeof raw === "object" && raw !== null) {
-    const record = raw as Record<string, unknown>;
-    const list = Array.isArray(record.users)
-      ? record.users
-      : Array.isArray(record.data)
-        ? record.data
-        : Array.isArray(record.following)
-          ? record.following
-          : Array.isArray(record.followers)
-            ? record.followers
-            : [];
-    return list.map(normalizeSearchUser);
-  }
-  return EMPTY_USERS;
+  if (typeof raw !== "object" || raw === null) return EMPTY_USERS;
+  const response = raw as Record<string, unknown>;
+  if (Array.isArray(response.users) || Array.isArray(response.data)) return normalizeSearchUsersResponse(raw).users;
+  const users = Array.isArray(response.following) ? response.following
+    : Array.isArray(response.followers) ? response.followers : raw;
+  return normalizeSearchUsersResponse(users).users;
 }
 
 export function useUserFollowers(username: string): UseUserNetworkResult {

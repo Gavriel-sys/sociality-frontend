@@ -9,6 +9,7 @@ export interface UserProfile {
   readonly postsCount: number;
   readonly followersCount: number;
   readonly followingCount: number;
+  readonly likesCount: number;
 }
 
 export interface PublicUserProfile extends UserProfile {
@@ -16,33 +17,42 @@ export interface PublicUserProfile extends UserProfile {
 }
 
 function resolveNestedSource(candidate: Record<string, unknown>): Record<string, unknown> {
-  if (candidate.data && typeof candidate.data === "object") {
-    return candidate.data as Record<string, unknown>;
-  }
-  if (candidate.user && typeof candidate.user === "object") {
-    return candidate.user as Record<string, unknown>;
+  for (const key of ["data", "user", "profile"]) {
+    const nested = candidate[key];
+    if (isRecord(nested)) {
+      return { ...candidate, ...resolveNestedSource(nested) };
+    }
   }
   return candidate;
 }
 
-function resolveCounter(primary: unknown, fallback: unknown): number {
-  if (typeof primary === "number") {
-    return primary;
-  }
-  if (typeof fallback === "number") {
-    return fallback;
-  }
-  return 0;
+function isRecord(candidate: unknown): candidate is Record<string, unknown> {
+  return typeof candidate === "object" && candidate !== null && !Array.isArray(candidate);
+}
+
+function resolveCounter(...candidates: unknown[]): number {
+  return candidates.find((candidate): candidate is number =>
+    typeof candidate === "number" && Number.isFinite(candidate),
+  ) ?? 0;
+}
+
+function resolveProfileCounters(source: Record<string, unknown>) {
+  const stats = isRecord(source.stats) ? source.stats : {};
+  const counts = isRecord(source._count) ? source._count : {};
+  return {
+    postsCount: resolveCounter(source.postsCount, stats.posts, counts.posts),
+    followersCount: resolveCounter(source.followersCount, stats.followers, counts.followers),
+    followingCount: resolveCounter(source.followingCount, stats.following, counts.following),
+    likesCount: resolveCounter(source.likesCount, stats.likes, counts.likes),
+  };
 }
 
 export function normalizeUserProfile(raw: unknown): UserProfile {
-  if (typeof raw !== "object" || raw === null) {
+  if (!isRecord(raw)) {
     throw new Error("Invalid user profile response: expected object.");
   }
 
-  const envelope = raw as Record<string, unknown>;
-  const source = resolveNestedSource(envelope);
-  const counts = (source._count ?? {}) as Record<string, unknown>;
+  const source = resolveNestedSource(raw);
 
   const avatar =
     typeof source.avatarUrl === "string"
@@ -52,16 +62,14 @@ export function normalizeUserProfile(raw: unknown): UserProfile {
         : undefined;
 
   return {
-    id: (source.id ?? "") as string | number,
+    id: typeof source.id === "string" || typeof source.id === "number" ? source.id : "",
     name: typeof source.name === "string" ? source.name : "",
     username: typeof source.username === "string" ? source.username : "",
     email: typeof source.email === "string" ? source.email : undefined,
     phone: typeof source.phone === "string" ? source.phone : undefined,
     bio: typeof source.bio === "string" ? source.bio : undefined,
     avatarUrl: avatar,
-    postsCount: resolveCounter(source.postsCount, counts.posts),
-    followersCount: resolveCounter(source.followersCount, counts.followers),
-    followingCount: resolveCounter(source.followingCount, counts.following),
+    ...resolveProfileCounters(source),
   };
 }
 

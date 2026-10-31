@@ -18,7 +18,7 @@ const mockProfile: UserProfile = {
   avatarUrl: "https://example.com/avatar.png",
   postsCount: 12,
   followersCount: 1420,
-  followingCount: 350,
+  followingCount: 350, likesCount: 0,
 };
 
 function createWrapper(store: AppStore, queryClient: QueryClient) {

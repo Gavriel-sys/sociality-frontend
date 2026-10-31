@@ -1,118 +1,34 @@
 "use client";
 
-import { useLogout } from "@/features/auth/use-logout";
 import { Avatar } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import type { UserProfile } from "../types";
+import { ProfileShareButton } from "./profile-share-button";
+import { ProfileStats } from "./profile-stats";
 
 export interface ProfileHeaderProps {
   readonly profile: UserProfile;
-  readonly onLogout?: () => void;
   readonly onFollowersClick?: () => void;
   readonly onFollowingClick?: () => void;
   readonly onEditProfile?: () => void;
 }
 
-function LogOutIcon() {
+export function ProfileHeader({ profile, onFollowersClick, onFollowingClick, onEditProfile }: Readonly<ProfileHeaderProps>) {
   return (
-    <svg
-      className="h-4 w-4 shrink-0"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden="true"
-    >
-      <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
-      <polyline points="16 17 21 12 16 7" />
-      <line x1="21" y1="12" x2="9" y2="12" />
-    </svg>
-  );
-}
-
-export function ProfileHeader({
-  profile,
-  onLogout,
-  onFollowersClick,
-  onFollowingClick,
-  onEditProfile,
-}: Readonly<ProfileHeaderProps>) {
-  const logoutAction = useLogout();
-  const handleLogout = onLogout ?? (() => logoutAction());
-
-  return (
-    <div className="flex flex-col gap-5 py-4">
-      <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 sm:gap-6">
-        <Avatar
-          src={profile.avatarUrl}
-          fallback={profile.name || profile.username}
-          alt={`${profile.name || profile.username}'s profile photo`}
-          size="xl"
-          className="h-16 w-16 md:h-20 md:w-20 ring-2 ring-[#1F242F]"
-        />
-
-        <div className="flex-1 min-w-0 space-y-1">
-          <h1 className="text-xl md:text-2xl font-bold tracking-tight text-[#FDFDFD] truncate">
-            {profile.name || "Anonymous User"}
-          </h1>
-          <p className="text-sm font-medium text-[#A4A7AE] truncate">
-            @{profile.username}
-          </p>
-          <p className="text-sm text-[#FDFDFD]/80 pt-1 leading-relaxed max-w-lg break-words">
-            {profile.bio || "No bio yet"}
-          </p>
+    <section aria-label="Your profile" className="flex flex-col gap-5">
+      <div className="grid grid-cols-[64px_minmax(0,1fr)] items-center gap-x-3 gap-y-3 md:grid-cols-[64px_minmax(0,1fr)_auto] md:gap-x-5">
+        <Avatar src={profile.avatarUrl} fallback={profile.name || profile.username} alt={`${profile.name || profile.username}'s profile photo`} size="xl" />
+        <div className="min-w-0 space-y-1">
+          <h1 className="truncate text-sm font-bold text-[#FDFDFD] md:text-base">{profile.name || "Anonymous User"}</h1>
+          <p className="truncate text-sm text-[#FDFDFD] md:text-base">{profile.username}</p>
+        </div>
+        <div className="col-span-2 flex items-center gap-3 md:col-span-1">
+          <Button variant="outline" onClick={onEditProfile} aria-label="Edit profile" className="h-10 min-h-10 flex-1 font-bold md:h-12 md:flex-none md:text-base">Edit Profile</Button>
+          <ProfileShareButton username={profile.username} />
         </div>
       </div>
-
-      <div className="flex items-center gap-6 sm:gap-8 border-y border-[#1F242F] py-3 text-sm">
-        <div className="flex items-center gap-1.5">
-          <span className="font-bold text-[#FDFDFD]">{profile.postsCount}</span>
-          <span className="text-[#A4A7AE]">Posts</span>
-        </div>
-        <button
-          type="button"
-          onClick={onFollowersClick}
-          aria-haspopup="dialog"
-          aria-label={`${profile.followersCount} Followers`}
-          className="flex items-center gap-1.5 rounded transition-colors hover:text-[#7F51F9] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7F51F9]"
-        >
-          <span className="font-bold text-[#FDFDFD]">{profile.followersCount}</span>
-          <span className="text-[#A4A7AE]">Followers</span>
-        </button>
-        <button
-          type="button"
-          onClick={onFollowingClick}
-          aria-haspopup="dialog"
-          aria-label={`${profile.followingCount} Following`}
-          className="flex items-center gap-1.5 rounded transition-colors hover:text-[#7F51F9] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7F51F9]"
-        >
-          <span className="font-bold text-[#FDFDFD]">{profile.followingCount}</span>
-          <span className="text-[#A4A7AE]">Following</span>
-        </button>
-      </div>
-
-      <div className="flex items-center gap-3">
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={onEditProfile}
-          aria-label="Edit profile"
-        >
-          Edit profile
-        </Button>
-
-        <Button
-          variant="destructive"
-          size="sm"
-          onClick={handleLogout}
-          aria-label="Log out of account"
-        >
-          <LogOutIcon />
-          <span>Log out</span>
-        </Button>
-      </div>
-    </div>
+      <p className="break-words text-sm leading-7 text-[#FDFDFD] md:text-base">{profile.bio || "No bio yet"}</p>
+      <ProfileStats profile={profile} onFollowersClick={onFollowersClick} onFollowingClick={onFollowingClick} />
+    </section>
   );
 }

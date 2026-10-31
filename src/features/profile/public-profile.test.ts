@@ -40,6 +40,7 @@ describe("normalizePublicUserProfile", () => {
       phone: undefined,
       bio: undefined,
       avatarUrl: undefined,
+      likesCount: 0,
       postsCount: 5,
       followersCount: 10,
       followingCount: 2,

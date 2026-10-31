@@ -121,6 +121,8 @@ describe("UserListDialog", () => {
     expect(screen.getByText("@bob")).toBeInTheDocument();
 
     const aliceLink = screen.getByRole("link", { name: /View Alice Wonderland's profile/i });
+    expect(aliceLink).toHaveAttribute("href", "/profile/alice");
+    aliceLink.addEventListener("click", (event) => event.preventDefault(), { once: true });
     fireEvent.click(aliceLink);
     expect(handleClose).toHaveBeenCalledTimes(1);
   });

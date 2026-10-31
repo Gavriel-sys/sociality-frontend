@@ -6,6 +6,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { setSession } from "@/features/auth/auth-slice";
 import type { UserProfile } from "@/features/profile/types";
 import * as useMyProfileModule from "@/features/profile/use-my-profile";
+import * as apiFetchModule from "@/lib/api/api-fetch";
 import { makeStore, type AppStore } from "@/lib/store/store";
 import MeProfilePage from "./page";
 
@@ -20,7 +21,7 @@ const mockProfile: UserProfile = {
   id: "user-789", name: "Morgan Taylor", username: "morgantaylor",
   email: "morgan@example.com", bio: "Designer & builder.",
   avatarUrl: "https://example.com/avatar.jpg", postsCount: 24,
-  followersCount: 500, followingCount: 180,
+  followersCount: 500, followingCount: 180, likesCount: 0,
 };
 
 describe("MeProfilePage", () => {
@@ -29,6 +30,7 @@ describe("MeProfilePage", () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.spyOn(apiFetchModule, "apiFetch").mockResolvedValue([]);
     store = makeStore();
     queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     store.dispatch(
@@ -65,23 +67,37 @@ describe("MeProfilePage", () => {
     expect(mockRefetch).toHaveBeenCalledTimes(1);
   });
 
-  it("renders profile header and overview tab when profile loads", () => {
+  it("renders only Gallery and Saved with Gallery selected initially", () => {
     mockProfileHook(mockProfile);
     renderWithProviders(<MeProfilePage />);
 
     expect(screen.getByRole("heading", { level: 1, name: "Morgan Taylor" })).toBeInTheDocument();
-    expect(screen.getByText("@morgantaylor")).toBeInTheDocument();
-    expect(screen.getByText("morgan@example.com")).toBeInTheDocument();
-    expect(screen.getByText("Posts, Saved, and Liked collections will be integrated in Stages 3–5.")).toBeInTheDocument();
+    expect(screen.getByText("morgantaylor")).toBeInTheDocument();
+    expect(screen.getAllByRole("tab").map((tab) => tab.textContent)).toEqual(["Gallery", "Saved"]);
+    expect(screen.getByRole("tab", { name: "Gallery" })).toHaveAttribute("aria-selected", "true");
+    expect(screen.getByRole("tabpanel", { name: "Gallery" })).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Account Details" })).not.toBeInTheDocument();
   });
 
-  it("displays empty states when switching to non-overview tabs", () => {
+  it("switches between the Gallery and Saved collections", async () => {
     mockProfileHook(mockProfile);
     renderWithProviders(<MeProfilePage />);
 
-    const postsTab = screen.getByRole("tab", { name: "Posts" });
-    fireEvent.click(postsTab);
-    expect(screen.getByText("No posts yet")).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "Your story starts here" })).toBeInTheDocument();
+    expect(screen.getByText("Share your first post and let the world see your moments, passions, and memories. Make this space truly yours.")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("tab", { name: "Saved" }));
+    expect(await screen.findByText("No saved posts yet")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("tab", { name: "Gallery" }));
+    expect(await screen.findByRole("button", { name: "Upload My First Post" })).toBeInTheDocument();
+  });
+
+  it("opens the post composer from Upload My First Post", async () => {
+    mockProfileHook(mockProfile);
+    renderWithProviders(<MeProfilePage />);
+
+    fireEvent.click(await screen.findByRole("button", { name: "Upload My First Post" }));
+
+    expect(screen.getByRole("dialog", { name: "Add Post" })).toBeInTheDocument();
   });
 
   it("opens followers dialog when followers counter is clicked", () => {

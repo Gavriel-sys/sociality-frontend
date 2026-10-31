@@ -4,6 +4,8 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { FollowingIcon } from "./following-icon";
+import styles from "./follow-button.module.css";
 
 export interface FollowButtonProps {
   readonly isFollowing: boolean;
@@ -11,13 +13,14 @@ export interface FollowButtonProps {
   readonly isLoading?: boolean;
   readonly isSelf?: boolean;
   readonly className?: string;
+  readonly appearance?: "default" | "pill";
 }
 
 function useSafeRouter() {
   try {
     return useRouter();
   } catch {
-    return null;
+    return undefined;
   }
 }
 
@@ -27,9 +30,11 @@ export function FollowButton({
   isLoading = false,
   isSelf = false,
   className,
+  appearance = "default",
 }: Readonly<FollowButtonProps>) {
   const [isHovered, setIsHovered] = useState(false);
   const router = useSafeRouter();
+  const appearanceClassName = appearance === "pill" ? cn(styles.pill, isFollowing && styles.following) : undefined;
 
   const handleSelfClick = () => {
     if (onClick) {
@@ -50,6 +55,7 @@ export function FollowButton({
         className={cn(
           "min-h-[44px] min-w-[110px] border-[#1F242F] bg-[#0A0D12] text-[#FDFDFD] hover:bg-[#141820]",
           className,
+          appearanceClassName,
         )}
       >
         Edit profile
@@ -72,8 +78,10 @@ export function FollowButton({
           "min-h-[44px] min-w-[110px] border-[#1F242F] bg-[#0A0D12] text-[#FDFDFD]",
           "hover:border-[#B41759]/60 hover:bg-[#B41759]/10 hover:text-[#B41759]",
           className,
+          appearanceClassName,
         )}
       >
+        {appearance === "pill" && !isLoading && <FollowingIcon />}
         {label}
       </Button>
     );
@@ -89,6 +97,7 @@ export function FollowButton({
       className={cn(
         "min-h-[44px] min-w-[110px] bg-[#6936F2] hover:bg-[#7F51F9] text-[#FDFDFD]",
         className,
+        appearanceClassName,
       )}
     >
       Follow

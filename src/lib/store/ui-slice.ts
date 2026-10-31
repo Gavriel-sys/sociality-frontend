@@ -1,7 +1,9 @@
-import { createSlice, type PayloadAction } from "@reduxjs/toolkit";
+import { createSlice, nanoid } from "@reduxjs/toolkit";
+import type { PayloadAction } from "@reduxjs/toolkit";
 
 export interface UiState {
   readonly isNavigationOpen: boolean;
+  readonly postSuccessNoticeId?: string;
 }
 
 const initialState: UiState = {
@@ -21,8 +23,17 @@ export const uiSlice = createSlice({
     closeNavigation: (state) => {
       state.isNavigationOpen = false;
     },
+    showPostSuccess: {
+      reducer: (state, action: PayloadAction<string>) => {
+        state.postSuccessNoticeId = action.payload;
+      },
+      prepare: () => ({ payload: nanoid() }),
+    },
+    dismissPostSuccess: (state) => {
+      state.postSuccessNoticeId = undefined;
+    },
   },
 });
 
-export const { toggleNavigation, setNavigationOpen, closeNavigation } = uiSlice.actions;
+export const { toggleNavigation, setNavigationOpen, closeNavigation, showPostSuccess, dismissPostSuccess } = uiSlice.actions;
 export const uiReducer = uiSlice.reducer;

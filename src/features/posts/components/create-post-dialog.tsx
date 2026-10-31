@@ -1,133 +1,112 @@
 "use client";
 
-import { useEffect, useRef, useState, type FormEvent } from "react";
+import { useEffect, useId, useState } from "react";
+import type { FormEvent } from "react";
 import { Dialog } from "@/components/ui/dialog";
-import { SpinnerIcon, UploadIcon } from "@/components/ui/icons";
+import { SpinnerIcon } from "@/components/ui/icons";
 import { cn } from "@/lib/utils";
 import { useCreatePost } from "../use-create-post";
+import { CreatePostPhotoPicker } from "./create-post-photo-picker";
+import styles from "./create-post-dialog.module.css";
 
 export interface CreatePostDialogProps {
   readonly isOpen: boolean;
   readonly onClose: () => void;
 }
 
-const MAX_BYTES = 5 * 1024 * 1024;
-const VALID_MIMES = ["image/png", "image/jpeg", "image/webp"];
-const revokeUrl = (url: string | null) => { if (url && typeof URL !== "undefined") URL.revokeObjectURL(url); };
+const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
+const ACCEPTED_IMAGE_TYPES = ["image/png", "image/jpeg", "image/webp"];
+
+function validateImage(file: File): string | undefined {
+  if (!ACCEPTED_IMAGE_TYPES.includes(file.type)) return "Please upload a PNG, JPEG, or WebP image.";
+  if (file.size > MAX_IMAGE_BYTES) return "Image size must not exceed 5MB.";
+}
 
 export function CreatePostDialog({ isOpen, onClose }: Readonly<CreatePostDialogProps>) {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [previewUrl, setPreviewUrl] = useState<string>();
   const [caption, setCaption] = useState("");
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [isDragOver, setIsDragOver] = useState(false);
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [imageError, setImageError] = useState<string>();
+  const [captionError, setCaptionError] = useState<string>();
+  const titleId = useId();
+  const captionErrorId = `${titleId}-caption-error`;
   const { createPost, isLoading, error: apiError } = useCreatePost();
 
-  useEffect(() => () => revokeUrl(previewUrl), [previewUrl]);
+  useEffect(() => () => {
+    if (previewUrl) URL.revokeObjectURL(previewUrl);
+  }, [previewUrl]);
+
+  const handleDeleteImage = () => {
+    setSelectedFile(null);
+    setPreviewUrl(undefined);
+    setImageError(undefined);
+  };
 
   const handleClose = () => {
-    revokeUrl(previewUrl);
-    setSelectedFile(null); setPreviewUrl(null); setCaption("");
-    setErrorMessage(null); setIsDragOver(false);
+    handleDeleteImage();
+    setCaption("");
+    setCaptionError(undefined);
     onClose();
   };
 
-  const handleSelectFile = (candidate: File) => {
-    if (!VALID_MIMES.includes(candidate.type)) {
-      setErrorMessage("Please upload a PNG, JPEG, or WebP image.");
-      return;
-    }
-    if (candidate.size > MAX_BYTES) {
-      setErrorMessage("Image size must not exceed 5MB.");
-      return;
-    }
-    revokeUrl(previewUrl);
-    setSelectedFile(candidate);
-    setPreviewUrl(typeof URL !== "undefined" ? URL.createObjectURL(candidate) : "");
-    setErrorMessage(null);
+  const handleSelectFile = (file: File) => {
+    const validationError = validateImage(file);
+    setImageError(validationError);
+    if (validationError) return;
+    setSelectedFile(file);
+    setPreviewUrl(URL.createObjectURL(file));
   };
 
-  const handleSubmit = async (e: FormEvent) => {
-    e.preventDefault();
-    if (!selectedFile || isLoading) return;
-    const created = await createPost({ image: selectedFile, caption });
-    if (created) handleClose();
+  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (isLoading) return;
+    const hasCaption = caption.trim().length > 0;
+    setImageError(selectedFile ? undefined : imageError ?? "Please upload a photo.");
+    setCaptionError(hasCaption ? undefined : "Please enter a caption.");
+    if (!selectedFile || !hasCaption) return;
+    const createdPost = await createPost({ image: selectedFile, caption });
+    if (createdPost) handleClose();
   };
 
-  const displayedError = errorMessage ?? apiError?.message ?? null;
+  const handleCaptionChange = (value: string) => {
+    setCaption(value.slice(0, 500));
+    if (value.trim()) setCaptionError(undefined);
+  };
 
   return (
-    <Dialog isOpen={isOpen} onClose={handleClose} title="Create new post">
-      <form onSubmit={handleSubmit} className="mt-4 space-y-4">
-        {displayedError && (
-          <div role="alert" className="rounded-xl border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-400">
-            {displayedError}
-          </div>
-        )}
-        <input
-          ref={fileInputRef} type="file" accept="image/png,image/jpeg,image/webp" className="hidden"
-          data-testid="file-input" aria-label="Upload image"
-          onChange={(e) => {
-            const next = e.target.files?.[0];
-            if (next) handleSelectFile(next);
-            e.target.value = "";
-          }}
-        />
-        {previewUrl ? (
-          <div className="relative aspect-square w-full overflow-hidden rounded-xl border border-[#1F242F] bg-[#141820]">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={previewUrl} alt="Selected preview" className="h-full w-full object-cover" />
-            <button
-              type="button" onClick={() => fileInputRef.current?.click()}
-              className="absolute bottom-3 right-3 rounded-lg border border-[#1F242F] bg-[#0A0D12]/80 px-3 py-1.5 text-xs font-medium text-[#FDFDFD] backdrop-blur-md hover:bg-[#0A0D12]"
-            >
-              Change photo
-            </button>
-          </div>
-        ) : (
-          <div
-            role="button" tabIndex={0} onClick={() => fileInputRef.current?.click()}
-            onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); fileInputRef.current?.click(); } }}
-            onDragOver={(e) => { e.preventDefault(); setIsDragOver(true); }}
-            onDragLeave={(e) => { e.preventDefault(); setIsDragOver(false); }}
-            onDrop={(e) => {
-              e.preventDefault(); setIsDragOver(false);
-              const dropped = e.dataTransfer.files?.[0];
-              if (dropped) handleSelectFile(dropped);
-            }}
-            aria-label="Drag and drop image here or click to browse"
+    <Dialog isOpen={isOpen} onClose={handleClose} aria-labelledby={titleId}
+      className={styles.dialog} overlayClassName={styles.overlay}>
+      <header className="flex h-9 items-center gap-3">
+        <button type="button" onClick={handleClose} aria-label="Back"
+          className="flex h-9 w-8 items-center justify-center rounded-lg text-[#FDFDFD] transition-colors hover:bg-[#141820] focus-visible:outline-2 focus-visible:outline-[#7F51F9]">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"
+            strokeLinecap="round" strokeLinejoin="round" className="h-7 w-7" aria-hidden="true">
+            <path d="m12 4-8 8 8 8M4 12h16" />
+          </svg>
+        </button>
+        <h2 id={titleId} className="text-2xl leading-9 font-bold text-[#FDFDFD]">Add Post</h2>
+      </header>
+      <form onSubmit={handleSubmit} className="mt-7">
+        <CreatePostPhotoPicker previewUrl={previewUrl} error={imageError}
+          onSelectFile={handleSelectFile} onDeleteImage={handleDeleteImage} />
+        <label className="mt-5 flex flex-col gap-1.5">
+          <span className="text-sm leading-5 font-semibold text-[#FDFDFD]">Caption</span>
+          <textarea value={caption} onChange={(event) => handleCaptionChange(event.target.value)}
+            placeholder="Create your caption" rows={3} maxLength={500}
+            aria-invalid={Boolean(captionError)} aria-describedby={captionError ? captionErrorId : undefined}
             className={cn(
-              "flex flex-col items-center justify-center gap-3 rounded-xl border-2 border-dashed p-8 cursor-pointer transition-colors",
-              isDragOver ? "border-[#7F51F9] bg-[#7F51F9]/10" : "border-[#1F242F] hover:border-[#373A41] bg-[#0A0D12]",
-            )}
-          >
-            <div className="flex h-12 w-12 items-center justify-center rounded-full bg-[#141820] text-[#7F51F9]">
-              <UploadIcon className="h-6 w-6" />
-            </div>
-            <div className="text-center">
-              <p className="text-sm font-medium text-[#FDFDFD]">Choose a file or drag & drop it here</p>
-              <p className="mt-1 text-xs text-[#A4A7AE]">PNG, JPEG, WebP up to 5MB</p>
-            </div>
-          </div>
-        )}
-        <div className="space-y-1.5">
-          <textarea
-            value={caption} onChange={(e) => setCaption(e.target.value.slice(0, 500))}
-            placeholder="Write a caption..." rows={3} maxLength={500}
-            className="w-full resize-none rounded-xl border border-[#1F242F] bg-[#141820] p-3 text-sm text-[#FDFDFD] placeholder:text-[#A4A7AE] focus:border-[#7F51F9] focus:outline-none"
-          />
-          <div className="flex justify-end text-xs text-[#A4A7AE]"><span>{caption.length}/500</span></div>
-        </div>
-        <div className="flex items-center justify-end gap-3 pt-2">
-          <button type="button" onClick={handleClose} className="rounded-xl border border-[#1F242F] px-4 py-2 text-sm font-medium text-[#A4A7AE] hover:bg-[#141820] hover:text-[#FDFDFD]">
-            Cancel
-          </button>
-          <button type="submit" disabled={!selectedFile || isLoading} className="flex items-center gap-2 rounded-xl bg-[#6936F2] px-5 py-2 text-sm font-medium text-[#FDFDFD] hover:bg-[#7F51F9] disabled:cursor-not-allowed disabled:opacity-50">
-            {isLoading ? <SpinnerIcon className="h-4 w-4" /> : null}
-            <span>Share</span>
-          </button>
-        </div>
+              "h-[101px] w-full resize-none rounded-xl border bg-[#0A0D12] px-[15px] py-3 text-base leading-6 text-[#FDFDFD] placeholder:text-[#535862] focus:outline-none",
+              captionError ? "border-[#EE1D7A] focus:border-[#EE1D7A]" : "border-[#181D27] focus:border-[#7F51F9]",
+            )} />
+        </label>
+        {captionError && <p id={captionErrorId} role="alert" className="mt-1.5 text-sm leading-5 text-[#EE1D7A]">{captionError}</p>}
+        {selectedFile && <p className="mt-1.5 text-right text-xs text-[#A4A7AE]">{caption.length}/500</p>}
+        {apiError && <p role="alert" className="mt-3 text-sm text-[#EE1D7A]">{apiError.message}</p>}
+        <button type="submit" disabled={isLoading} aria-busy={isLoading}
+          className="mt-4 flex h-12 w-full items-center justify-center gap-2 rounded-full bg-[#6936F2] px-6 text-base font-semibold text-[#FDFDFD] transition-colors enabled:hover:bg-[#7F51F9] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#7F51F9] disabled:cursor-not-allowed">
+          {isLoading && <SpinnerIcon className="h-4 w-4" />}
+          <span>Share</span>
+        </button>
       </form>
     </Dialog>
   );

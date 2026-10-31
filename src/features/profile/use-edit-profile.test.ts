@@ -35,7 +35,7 @@ const mockUpdatedProfile: UserProfile = {
   avatarUrl: "https://example.com/new-avatar.jpg",
   postsCount: 5,
   followersCount: 10,
-  followingCount: 15,
+  followingCount: 15, likesCount: 0,
 };
 
 describe("useEditProfile", () => {

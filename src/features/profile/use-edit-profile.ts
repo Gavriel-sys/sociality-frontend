@@ -5,10 +5,10 @@ import { QueryClient, QueryClientContext, useMutation } from "@tanstack/react-qu
 import { useRouter } from "next/navigation";
 import { ReactReduxContext } from "react-redux";
 import { updateUser } from "@/features/auth/auth-slice";
-import { saveSession } from "@/features/auth/session-storage";
 import { apiFetch } from "@/lib/api/api-fetch";
 import { queryKeys } from "@/lib/query/query-keys";
 import { normalizeUserProfile, type UserProfile } from "./types";
+import { buildProfileRequestBody } from "./edit-profile-request";
 
 export interface EditProfileInput {
   readonly name?: string;
@@ -42,7 +42,7 @@ function useSafeRouter() {
   try {
     return useRouter();
   } catch {
-    return null;
+    return undefined;
   }
 }
 
@@ -50,22 +50,6 @@ function useSafeQueryClient(): QueryClient {
   const client = useContext(QueryClientContext);
   const fallback = useMemo(() => new QueryClient(), []);
   return client ?? fallback;
-}
-
-function buildRequestBody(input: EditProfileInput): FormData | Record<string, unknown> {
-  if (input.avatar instanceof File) {
-    const formData = new FormData();
-    if (input.name !== undefined) formData.append("name", input.name);
-    if (input.bio !== undefined) formData.append("bio", input.bio);
-    formData.append("avatar", input.avatar);
-    return formData;
-  }
-
-  const jsonBody: Record<string, unknown> = {};
-  if (input.name !== undefined) jsonBody.name = input.name;
-  if (input.bio !== undefined) jsonBody.bio = input.bio;
-  if (typeof input.avatar === "string") jsonBody.avatar = input.avatar;
-  return jsonBody;
 }
 
 export function useEditProfile(): UseEditProfileResult {
@@ -77,7 +61,7 @@ export function useEditProfile(): UseEditProfileResult {
 
   const mutation = useMutation<UserProfile, Error, EditProfileInput>({
     mutationFn: (input: EditProfileInput) => {
-      const body = buildRequestBody(input);
+      const body = buildProfileRequestBody(input);
       return apiFetch<UserProfile>({
         endpoint: "/api/me",
         method: "PATCH",
@@ -86,34 +70,22 @@ export function useEditProfile(): UseEditProfileResult {
         decoder: normalizeUserProfile,
       });
     },
-    onError: (err) => {
-      setMutationError(err);
+    onError: (error) => {
+      setMutationError(error);
     },
     onSuccess: async (updated) => {
       setMutationError(null);
-      dispatch?.(updateUser({ name: updated.name, avatarUrl: updated.avatarUrl }));
-
-      if (token && sessionId) {
-        saveSession({
-          token,
-          sessionId,
-          user: {
-            id: updated.id,
-            name: updated.name,
-            username: updated.username,
-            email: updated.email,
-            avatarUrl: updated.avatarUrl,
-          },
-        });
-      }
+      dispatch?.(updateUser({ name: updated.name, bio: updated.bio, avatarUrl: updated.avatarUrl }));
 
       if (sessionId) {
-        await queryClient.invalidateQueries({ queryKey: queryKeys.private(sessionId).me() });
+        await queryClient.cancelQueries({ queryKey: queryKeys.private(sessionId).me() });
+        queryClient.setQueryData(queryKeys.private(sessionId).me(), updated);
+        void queryClient.invalidateQueries({ queryKey: queryKeys.private(sessionId).me() });
       }
       if (updated.username) {
-        await queryClient.invalidateQueries({ queryKey: queryKeys.public.userProfile(updated.username) });
+        void queryClient.invalidateQueries({ queryKey: queryKeys.public.userProfile(updated.username) });
       }
-      await queryClient.invalidateQueries({ queryKey: ["public", "user"] });
+      void queryClient.invalidateQueries({ queryKey: ["public", "user"] });
     },
   }, queryClient);
 

@@ -18,7 +18,7 @@ const mockProfile: PublicUserProfile = {
   avatarUrl: "https://example.com/avatar.jpg",
   postsCount: 42,
   followersCount: 1200,
-  followingCount: 300,
+  followingCount: 300, likesCount: 0,
   isFollowing: false,
 };
 

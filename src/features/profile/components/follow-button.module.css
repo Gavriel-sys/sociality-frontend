@@ -1,0 +1,27 @@
+.pill {
+  position: relative;
+  min-width: 93px;
+  height: 40px;
+  min-height: 40px;
+  padding: 0 24px;
+  border-radius: 9999px;
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 20px;
+}
+
+.pill::after {
+  position: absolute;
+  top: 50%;
+  left: 0;
+  width: 100%;
+  height: 44px;
+  content: "";
+  transform: translateY(-50%);
+}
+
+.following {
+  min-width: 127px;
+  gap: 8px;
+  padding: 0 16px;
+}
