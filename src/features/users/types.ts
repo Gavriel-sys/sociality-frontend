@@ -4,6 +4,7 @@ export interface SearchUser {
   readonly username: string;
   readonly avatarUrl?: string;
   readonly bio?: string;
+  readonly isFollowing?: boolean;
 }
 
 export interface SearchUsersResponse {
@@ -36,6 +37,7 @@ export function normalizeSearchUser(raw: unknown): SearchUser {
   const rawUsername = source.username ?? source.handle ?? source.user_name ?? "";
   const rawAvatar = source.avatarUrl ?? source.avatar ?? source.image ?? source.profilePicture;
   const rawBio = source.bio ?? source.biography ?? source.description;
+  const isFollowing = source.isFollowing ?? envelope.isFollowing;
 
   const id = typeof rawId === "string" || typeof rawId === "number" ? rawId : String(rawId);
   const name = typeof rawName === "string" ? rawName : String(rawName);
@@ -51,6 +53,7 @@ export function normalizeSearchUser(raw: unknown): SearchUser {
     username,
     avatarUrl,
     bio,
+    ...(typeof isFollowing === "boolean" ? { isFollowing } : {}),
   };
 }
 

@@ -21,7 +21,7 @@ vi.mock("next/navigation", () => ({
 
 const mockPublicProfile: PublicUserProfile = {
   id: "u-marcus", name: "Marcus Aurelius", username: "marcus", bio: "Philosopher emperor.",
-  postsCount: 12, followersCount: 100, followingCount: 30, isFollowing: false,
+  postsCount: 12, followersCount: 100, followingCount: 30, likesCount: 0, isFollowing: false,
 };
 
 function createWrapper(store: AppStore, queryClient: QueryClient) {

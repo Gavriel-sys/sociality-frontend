@@ -115,9 +115,9 @@ describe("UsersSearchPage", () => {
   it("submitting header search form navigates to /users/search?q=...", () => {
     mockHook();
     renderPage();
-    const headerInput = screen.getByPlaceholderText("Search creators, posts...");
+    const headerInput = screen.getByPlaceholderText("Search");
     fireEvent.change(headerInput, { target: { value: "thor" } });
-    fireEvent.submit(headerInput.closest("form")!);
+    fireEvent.submit(screen.getByRole("search"));
     expect(mockPush).toHaveBeenCalledWith("/users/search?q=thor");
   });
 });
