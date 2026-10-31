@@ -1,9 +1,8 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { fireEvent, render, screen } from "@testing-library/react";
-import type { ReactNode } from "react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import { Provider } from "react-redux";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { setSession } from "@/features/auth/auth-slice";
+import { clearSession, setSession } from "@/features/auth/auth-slice";
 import * as feedHookModule from "@/features/feed/use-infinite-feed";
 import type { Post } from "@/features/posts/types";
 import { makeStore, type AppStore } from "@/lib/store/store";
@@ -52,10 +51,10 @@ describe("FeedPage", () => {
     store.dispatch(setSession({ token: "test-token", sessionId: "test-session", user: { username: "tester" } }));
   });
 
-  function renderFeed(ui: ReactNode = <FeedPage />) {
+  function renderFeed() {
     return render(
       <Provider store={store}>
-        <QueryClientProvider client={queryClient}>{ui}</QueryClientProvider>
+        <QueryClientProvider client={queryClient}><FeedPage /></QueryClientProvider>
       </Provider>,
     );
   }
@@ -65,7 +64,7 @@ describe("FeedPage", () => {
       posts: [],
       isLoading: false,
       isError: false,
-      error: null,
+      error: undefined,
       isFetchingNextPage: false,
       hasNextPage: false,
       fetchNextPage: vi.fn(),
@@ -73,6 +72,19 @@ describe("FeedPage", () => {
       ...overrides,
     });
   }
+
+  it("renders community posts for guests without redirecting to login", () => {
+    store.dispatch(clearSession());
+    mockFeedHook({ posts: [mockPost1] });
+    renderFeed();
+
+    expect(screen.getByText("First awesome post")).toBeInTheDocument();
+    expect(mockPush).not.toHaveBeenCalled();
+    const header = within(screen.getByRole("banner", { name: "Site header" }));
+    expect(header.getByRole("link", { name: "Login" })).toHaveAttribute("href", "/login");
+    expect(header.getByRole("link", { name: "Register" })).toHaveAttribute("href", "/register");
+    expect(header.queryByLabelText("Current user profile")).not.toBeInTheDocument();
+  });
 
   it("renders loading skeletons while loading", () => {
     mockFeedHook({ isLoading: true });
@@ -99,10 +111,10 @@ describe("FeedPage", () => {
     renderFeed();
 
     expect(screen.getByText("No posts in your feed yet")).toBeInTheDocument();
-    expect(screen.getByText("Follow other creators to see their posts here.")).toBeInTheDocument();
+    expect(screen.getByText("Check back later for new posts from the community.")).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole("button", { name: "Explore creators" }));
-    expect(mockPush).toHaveBeenCalledWith("/explore");
+    fireEvent.click(screen.getByRole("button", { name: "Find creators" }));
+    expect(mockPush).toHaveBeenCalledWith("/users/search");
   });
 
   it("renders list of PostCard items when posts exist", () => {
@@ -112,6 +124,10 @@ describe("FeedPage", () => {
     expect(screen.getByText("First awesome post")).toBeInTheDocument();
     expect(screen.getByText("Second inspiring update")).toBeInTheDocument();
     expect(screen.getByText("You're all caught up!")).toBeInTheDocument();
+    const header = within(screen.getByRole("banner", { name: "Site header" }));
+    expect(header.getByRole("link", { name: "View your profile" })).toHaveAttribute("href", "/me");
+    expect(header.queryByRole("link", { name: "Login" })).not.toBeInTheDocument();
+    expect(header.queryByRole("link", { name: "Register" })).not.toBeInTheDocument();
   });
 
   it("calls fetchNextPage when Load more posts button is clicked", () => {
@@ -119,8 +135,7 @@ describe("FeedPage", () => {
     mockFeedHook({ posts: [mockPost1], hasNextPage: true, fetchNextPage: mockFetchNextPage });
     renderFeed();
 
-    const loadMoreBtn = screen.getByRole("button", { name: "Load more posts" });
-    fireEvent.click(loadMoreBtn);
+    fireEvent.click(screen.getByRole("button", { name: "Load more posts" }));
     expect(mockFetchNextPage).toHaveBeenCalledTimes(1);
   });
 });

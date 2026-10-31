@@ -1,7 +1,6 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { AuthGuard } from "@/components/auth/auth-guard";
 import { EmptyState } from "@/components/feedback/empty-state";
 import { ErrorState } from "@/components/feedback/error-state";
 import { FloatingNav } from "@/components/layout/floating-nav";
@@ -36,7 +35,7 @@ function FeedView() {
             <PostCardSkeleton />
             <PostCardSkeleton />
           </div>
-        ) : isError || !posts ? (
+        ) : isError ? (
           <ErrorState
             title="Failed to load feed"
             message={error?.message ?? "An unexpected error occurred while loading your feed."}
@@ -45,10 +44,10 @@ function FeedView() {
         ) : posts.length === 0 ? (
           <EmptyState
             title="No posts in your feed yet"
-            description="Follow other creators to see their posts here."
+            description="Check back later for new posts from the community."
             action={{
-              label: "Explore creators",
-              onClick: () => router.push("/explore"),
+              label: "Find creators",
+              onClick: () => router.push("/users/search"),
             }}
           />
         ) : (
@@ -77,9 +76,5 @@ function FeedView() {
 }
 
 export default function FeedPage() {
-  return (
-    <AuthGuard>
-      <FeedView />
-    </AuthGuard>
-  );
+  return <FeedView />;
 }

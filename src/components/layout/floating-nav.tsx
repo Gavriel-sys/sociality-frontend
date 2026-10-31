@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, type HTMLAttributes } from "react";
+import { useState } from "react";
+import type { HTMLAttributes } from "react";
 import { useRouter } from "next/navigation";
 import { HomeIcon, PlusIcon, UserIcon } from "@/components/ui/icons";
 import { CreatePostDialog } from "@/features/posts/components/create-post-dialog";
@@ -13,11 +14,11 @@ export interface FloatingNavProps extends HTMLAttributes<HTMLElement> {
   readonly onSelectKey?: (key: NavItemKey) => void;
 }
 
-function useSafeRouter() {
+function useSafeRouter(): ReturnType<typeof useRouter> | undefined {
   try {
     return useRouter();
   } catch {
-    return null;
+    return undefined;
   }
 }
 
@@ -57,7 +58,6 @@ export function FloatingNav({
       )}
       {...props}
     >
-      {/* Home button */}
       <button
         type="button"
         onClick={() => handleSelectKey("home")}
@@ -66,14 +66,13 @@ export function FloatingNav({
         className={cn(
           "inline-flex flex-col items-center justify-center gap-1 rounded-full p-2 transition-colors",
           "min-h-[44px] min-w-[44px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7F51F9]",
-          activeKey === "home" ? "text-[#FDFDFD]" : "text-[#A4A7AE] hover:text-[#FDFDFD]",
+          activeKey === "home" ? "text-[#7F51F9]" : "text-[#A4A7AE] hover:text-[#FDFDFD]",
         )}
       >
         <HomeIcon className="h-6 w-6" />
-        <span className="text-[10px] font-medium sr-only md:not-sr-only">Home</span>
+        <span className="text-[10px] font-medium leading-none">Home</span>
       </button>
 
-      {/* Add Post button (prominent center pill) */}
       <button
         type="button"
         onClick={() => handleSelectKey("add")}
@@ -87,7 +86,6 @@ export function FloatingNav({
         <PlusIcon className="h-6 w-6" />
       </button>
 
-      {/* Profile button */}
       <button
         type="button"
         onClick={() => handleSelectKey("profile")}
@@ -96,11 +94,11 @@ export function FloatingNav({
         className={cn(
           "inline-flex flex-col items-center justify-center gap-1 rounded-full p-2 transition-colors",
           "min-h-[44px] min-w-[44px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7F51F9]",
-          activeKey === "profile" ? "text-[#FDFDFD]" : "text-[#A4A7AE] hover:text-[#FDFDFD]",
+          activeKey === "profile" ? "text-[#7F51F9]" : "text-[#FDFDFD] hover:text-[#7F51F9]",
         )}
       >
         <UserIcon className="h-6 w-6" />
-        <span className="text-[10px] font-medium sr-only md:not-sr-only">Profile</span>
+        <span className="text-[10px] font-medium leading-none">Profile</span>
       </button>
     </nav>
     <CreatePostDialog isOpen={isCreateOpen} onClose={() => setIsCreateOpen(false)} />

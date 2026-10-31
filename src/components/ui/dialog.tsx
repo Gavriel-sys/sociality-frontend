@@ -11,6 +11,7 @@ export interface DialogProps extends HTMLAttributes<HTMLDivElement> {
   readonly title?: string;
   readonly description?: string;
   readonly children?: ReactNode;
+  readonly overlayClassName?: string;
 }
 
 export function Dialog({
@@ -20,6 +21,7 @@ export function Dialog({
   description,
   children,
   className,
+  overlayClassName,
   ...props
 }: Readonly<DialogProps>) {
   const dialogId = useId();
@@ -35,12 +37,12 @@ export function Dialog({
       }
     };
 
-    const originalOverflow = document.body.style.overflow;
+    const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
     window.addEventListener("keydown", handleKeyDown);
 
     return () => {
-      document.body.style.overflow = originalOverflow;
+      document.body.style.overflow = previousOverflow;
       window.removeEventListener("keydown", handleKeyDown);
     };
   }, [isOpen, onClose]);
@@ -53,7 +55,7 @@ export function Dialog({
     <div
       role="presentation"
       onClick={onClose}
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200"
+      className={cn("fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200", overlayClassName)}
     >
       <div
         role="dialog"
@@ -72,13 +74,14 @@ export function Dialog({
           type="button"
           onClick={onClose}
           aria-label="Close dialog"
+          data-slot="dialog-close"
           className="absolute right-4 top-4 inline-flex h-11 w-11 min-h-[44px] min-w-[44px] items-center justify-center rounded-full text-[#A4A7AE] hover:bg-[#141820] hover:text-[#FDFDFD] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7F51F9]"
         >
           <CloseIcon className="h-5 w-5" />
         </button>
 
         {title ? (
-          <h2 id={titleId} className="text-xl font-semibold tracking-tight text-[#FDFDFD]">
+          <h2 id={titleId} data-slot="dialog-title" className="text-xl font-semibold tracking-tight text-[#FDFDFD]">
             {title}
           </h2>
         ) : undefined}
@@ -89,7 +92,7 @@ export function Dialog({
           </p>
         ) : undefined}
 
-        <div className="mt-4">{children}</div>
+        <div data-slot="dialog-content" className="mt-4">{children}</div>
       </div>
     </div>
   );

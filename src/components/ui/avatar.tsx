@@ -38,10 +38,10 @@ export function Avatar({
   className,
   ...props
 }: Readonly<AvatarProps>) {
-  const [hasImageError, setHasImageError] = useState(false);
+  const [failedImageSource, setFailedImageSource] = useState<string>();
   const sizeConfig = sizeStyles[size];
   const initials = getInitials(fallback ?? alt);
-  const shouldRenderImage = Boolean(src) && !hasImageError;
+  const shouldRenderImage = Boolean(src) && failedImageSource !== src;
 
   return (
     <div
@@ -57,7 +57,7 @@ export function Avatar({
         <img
           src={src}
           alt={alt}
-          onError={() => setHasImageError(true)}
+          onError={() => setFailedImageSource(src)}
           className="h-full w-full object-cover"
         />
       ) : initials ? (

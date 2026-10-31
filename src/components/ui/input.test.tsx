@@ -13,11 +13,18 @@ describe("Input component", () => {
   it("renders error message with accessible aria-invalid and aria-describedby", () => {
     render(<Input label="Email" error="Invalid email address" />);
     const input = screen.getByLabelText("Email");
-    const errorMsg = screen.getByRole("alert");
+    const errorMessage = screen.getByRole("alert");
 
     expect(input).toHaveAttribute("aria-invalid", "true");
-    expect(input).toHaveAttribute("aria-describedby", errorMsg.id);
-    expect(errorMsg).toHaveTextContent("Invalid email address");
+    expect(input).toHaveAttribute("aria-describedby", errorMessage.id);
+    expect(errorMessage).toHaveTextContent("Invalid email address");
+  });
+
+  it("describes only the displayed error when helper text is replaced", () => {
+    render(<Input label="Email" helperText="Use your work email" error="Invalid email" />);
+    expect(screen.getByLabelText("Email")).toHaveAccessibleDescription("Invalid email");
+    expect(screen.getByLabelText("Email")).toHaveAttribute("aria-describedby", screen.getByRole("alert").id);
+    expect(screen.queryByText("Use your work email")).not.toBeInTheDocument();
   });
 
   it("renders helper text and associates it via aria-describedby", () => {

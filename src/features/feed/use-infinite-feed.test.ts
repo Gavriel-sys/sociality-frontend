@@ -1,87 +1,65 @@
-import { createElement, type ReactNode } from "react";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { renderHook, waitFor } from "@testing-library/react";
-import { Provider } from "react-redux";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { clearSession, setSession } from "@/features/auth/auth-slice";
 import * as apiFetchModule from "@/lib/api/api-fetch";
-import { makeStore, type AppStore } from "@/lib/store/store";
+import { createFeedTestContext, createRawPost } from "./feed-test-utils";
 import { useInfiniteFeed } from "./use-infinite-feed";
 
-function createMockPost(id: string | number, text = "Post caption") {
-  return {
-    id,
-    text,
-    image: "https://example.com/image.jpg",
-    created_at: "2026-10-22T12:00:00.000Z",
-    author: { id: "user-1", name: "User One", username: "userone" },
-    likes_count: 3,
-    comments_count: 1,
-    is_liked: false,
-    is_saved: false,
-  };
-}
-
-function createWrapper(store: AppStore, queryClient: QueryClient) {
-  return function TestWrapper({ children }: { readonly children: ReactNode }) {
-    return createElement(
-      Provider as (props: { store: AppStore; children?: ReactNode }) => ReactNode,
-      { store },
-      createElement(QueryClientProvider, { client: queryClient }, children),
-    );
-  };
-}
-
 describe("useInfiniteFeed", () => {
-  let store: AppStore;
-  let queryClient: QueryClient;
+  let context: ReturnType<typeof createFeedTestContext>;
 
   beforeEach(() => {
     vi.clearAllMocks();
-    store = makeStore();
-    queryClient = new QueryClient({
-      defaultOptions: { queries: { retry: false } },
-    });
+    context = createFeedTestContext();
   });
 
-  it("is disabled when not authenticated", () => {
-    store.dispatch(clearSession());
-    const wrapper = createWrapper(store, queryClient);
+  afterEach(() => { context.queryClient.clear(); vi.restoreAllMocks(); });
+
+  it("fetches public posts when not authenticated", async () => {
+    context.store.dispatch(clearSession());
+    const apiSpy = vi.spyOn(apiFetchModule, "apiFetch").mockResolvedValueOnce([]);
+    const wrapper = context.wrapper;
     const { result } = renderHook(() => useInfiniteFeed(), { wrapper });
 
-    expect(result.current.isLoading).toBe(false);
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+    expect(apiSpy).toHaveBeenCalledWith(expect.objectContaining({
+      endpoint: "/api/posts?page=1&limit=10", token: undefined,
+    }));
     expect(result.current.posts).toEqual([]);
     expect(result.current.hasNextPage).toBe(false);
   });
 
   it("fetches first page of posts and normalizes correctly", async () => {
-    store.dispatch(setSession({ token: "token-1", sessionId: "session-1" }));
-    const rawData = { posts: [createMockPost("p-1", "First post"), createMockPost("p-2", "Second post")] };
+    context.store.dispatch(setSession({ token: "token-1", sessionId: "session-1" }));
+    const rawData = { posts: [createRawPost("p-1", "First post"), createRawPost("p-2", "Second post")] };
     const apiSpy = vi.spyOn(apiFetchModule, "apiFetch").mockResolvedValueOnce(rawData);
 
-    const wrapper = createWrapper(store, queryClient);
+    const wrapper = context.wrapper;
     const { result } = renderHook(() => useInfiniteFeed(), { wrapper });
 
     await waitFor(() => expect(result.current.posts).toHaveLength(2));
     expect(result.current.posts[0].id).toBe("p-1");
     expect(result.current.posts[0].caption).toBe("First post");
     expect(result.current.posts[0].author.username).toBe("userone");
+    expect(result.current.posts[0].isLiked).toBe(true);
+    expect(result.current.posts[0].likesCount).toBe(3);
+    expect(result.current.posts[0].commentsCount).toBe(1);
     expect(result.current.hasNextPage).toBe(false);
     expect(apiSpy).toHaveBeenCalledWith(
-      expect.objectContaining({ endpoint: "/api/feed?page=1&limit=10", token: "token-1" }),
+      expect.objectContaining({ endpoint: "/api/posts?page=1&limit=10", token: "token-1" }),
     );
   });
 
   it("fetches next page and appends posts", async () => {
-    store.dispatch(setSession({ token: "token-1", sessionId: "session-1" }));
-    const page1 = Array.from({ length: 10 }, (_, i) => createMockPost(`p-${i + 1}`));
-    const page2 = [createMockPost("p-11"), createMockPost("p-12")];
+    context.store.dispatch(setSession({ token: "token-1", sessionId: "session-1" }));
+    const page1 = Array.from({ length: 10 }, (_, i) => createRawPost(`p-${i + 1}`));
+    const page2 = [createRawPost("p-11"), createRawPost("p-12")];
 
-    vi.spyOn(apiFetchModule, "apiFetch")
+    const fetchApi = vi.spyOn(apiFetchModule, "apiFetch")
       .mockResolvedValueOnce({ data: page1 })
       .mockResolvedValueOnce({ data: page2 });
 
-    const wrapper = createWrapper(store, queryClient);
+    const wrapper = context.wrapper;
     const { result } = renderHook(() => useInfiniteFeed(), { wrapper });
 
     await waitFor(() => expect(result.current.posts).toHaveLength(10));
@@ -91,18 +69,21 @@ describe("useInfiniteFeed", () => {
 
     await waitFor(() => expect(result.current.posts).toHaveLength(12));
     expect(result.current.hasNextPage).toBe(false);
+    expect(fetchApi).toHaveBeenNthCalledWith(2, expect.objectContaining({
+      endpoint: "/api/posts?page=2&limit=10", token: "token-1",
+    }));
   });
 
   it("de-duplicates duplicate post IDs across multiple pages", async () => {
-    store.dispatch(setSession({ token: "token-1", sessionId: "session-1" }));
-    const page1 = Array.from({ length: 10 }, (_, i) => createMockPost(`p-${i + 1}`));
-    const page2 = [createMockPost("p-10"), createMockPost("p-11")];
+    context.store.dispatch(setSession({ token: "token-1", sessionId: "session-1" }));
+    const page1 = Array.from({ length: 10 }, (_, i) => createRawPost(`p-${i + 1}`));
+    const page2 = [createRawPost("p-10"), createRawPost("p-11")];
 
     vi.spyOn(apiFetchModule, "apiFetch")
       .mockResolvedValueOnce(page1)
       .mockResolvedValueOnce(page2);
 
-    const wrapper = createWrapper(store, queryClient);
+    const wrapper = context.wrapper;
     const { result } = renderHook(() => useInfiniteFeed(), { wrapper });
 
     await waitFor(() => expect(result.current.posts).toHaveLength(10));
@@ -114,10 +95,10 @@ describe("useInfiniteFeed", () => {
   });
 
   it("handles API error response correctly", async () => {
-    store.dispatch(setSession({ token: "token-1", sessionId: "session-1" }));
+    context.store.dispatch(setSession({ token: "token-1", sessionId: "session-1" }));
     vi.spyOn(apiFetchModule, "apiFetch").mockRejectedValueOnce(new Error("Feed fetch failed"));
 
-    const wrapper = createWrapper(store, queryClient);
+    const wrapper = context.wrapper;
     const { result } = renderHook(() => useInfiniteFeed(), { wrapper });
 
     await waitFor(() => expect(result.current.isError).toBe(true));

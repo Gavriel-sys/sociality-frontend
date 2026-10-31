@@ -13,7 +13,7 @@ export interface UseInfiniteFeedResult {
   readonly posts: readonly Post[];
   readonly isLoading: boolean;
   readonly isError: boolean;
-  readonly error: Error | null;
+  readonly error: Error | undefined;
   readonly isFetchingNextPage: boolean;
   readonly hasNextPage: boolean;
   readonly fetchNextPage: () => Promise<unknown>;
@@ -43,8 +43,7 @@ function extractRawPosts(raw: unknown): readonly unknown[] {
 }
 
 function parseFeedPage(raw: unknown): readonly Post[] {
-  const items = extractRawPosts(raw);
-  return items.map((item) => normalizePost(item));
+  return extractRawPosts(raw).map(normalizePost);
 }
 
 function deduplicatePosts(
@@ -69,9 +68,7 @@ export function useInfiniteFeed(): UseInfiniteFeedResult {
 
   const queryKey = sessionId
     ? queryKeys.private(sessionId).feed()
-    : (["private", "unauthenticated", "feed"] as const);
-
-  const isEnabled = Boolean(token && sessionId);
+    : (["public", "feed"] as const);
 
   const {
     data,
@@ -85,12 +82,9 @@ export function useInfiniteFeed(): UseInfiniteFeedResult {
   } = useInfiniteQuery<readonly Post[], Error>({
     queryKey,
     queryFn: async ({ pageParam = 1, signal }) => {
-      if (!token) {
-        throw new Error("Missing authentication token.");
-      }
       const raw = await apiFetch<unknown>({
-        endpoint: `/api/feed?page=${pageParam}&limit=${FEED_PAGE_LIMIT}`,
-        token,
+        endpoint: `/api/posts?page=${pageParam}&limit=${FEED_PAGE_LIMIT}`,
+        token: token ?? undefined,
         signal,
       });
       return parseFeedPage(raw);
@@ -102,7 +96,6 @@ export function useInfiniteFeed(): UseInfiniteFeedResult {
       }
       return allPages.length + 1;
     },
-    enabled: isEnabled,
   });
 
   const posts = useMemo(() => deduplicatePosts(data?.pages), [data?.pages]);
@@ -111,7 +104,7 @@ export function useInfiniteFeed(): UseInfiniteFeedResult {
     posts,
     isLoading,
     isError,
-    error: error ?? null,
+    error: error ?? undefined,
     isFetchingNextPage,
     hasNextPage,
     fetchNextPage,
