@@ -54,6 +54,8 @@ describe("registerSchema", () => {
     username: "gilbert_123",
     email: "gilbert@example.com",
     password: "securepassword",
+    confirmPassword: "securepassword",
+    phone: "08123456789",
   };
 
   it("accepts valid registration payload with trimmed fields", () => {
@@ -61,6 +63,8 @@ describe("registerSchema", () => {
     const result = registerSchema.safeParse({
       ...validPayload,
       name: "  Gilbert Doe  ",
+      username: " gilbert_123 ",
+      email: " gilbert@example.com ",
       phone: "+628123456789",
     });
 
@@ -69,6 +73,7 @@ describe("registerSchema", () => {
     if (result.success) {
       expect(result.data.name).toBe("Gilbert Doe");
       expect(result.data.username).toBe("gilbert_123");
+      expect(result.data.email).toBe("gilbert@example.com");
       expect(result.data.phone).toBe("+628123456789");
     }
   });
@@ -104,16 +109,24 @@ describe("registerSchema", () => {
     ).toBe(false);
   });
 
-  it("handles optional phone: trims value, converts empty string to undefined", () => {
-    // Arrange & Act
-    const emptyRes = registerSchema.safeParse({ ...validPayload, phone: "" });
-    const spaceRes = registerSchema.safeParse({ ...validPayload, phone: "   " });
-    const omitRes = registerSchema.safeParse(validPayload);
+  it.each(["", "   ", undefined])("accepts optional phone %s", (phone) => {
+    const result = registerSchema.safeParse({ ...validPayload, phone });
+    expect(result.success).toBe(true);
+    if (result.success) expect(result.data.phone).toBeUndefined();
+  });
 
-    // Assert
-    expect(emptyRes.success && emptyRes.data.phone).toBeUndefined();
-    expect(spaceRes.success && spaceRes.data.phone).toBeUndefined();
-    expect(omitRes.success && omitRes.data.phone).toBeUndefined();
+  it("rejects an invalid supplied phone", () => {
+    expect(registerSchema.safeParse({ ...validPayload, phone: "invalid" }).success).toBe(false);
+  });
+
+  it.each(["", "   ", "invalid", undefined])("rejects missing or invalid email %s", (email) => {
+    expect(registerSchema.safeParse({ ...validPayload, email }).success).toBe(false);
+  });
+
+  it.each(["", "different-password", undefined])("rejects missing or mismatched confirmation %s", (confirmPassword) => {
+    const result = registerSchema.safeParse({ ...validPayload, confirmPassword });
+    expect(result.success).toBe(false);
+    if (!result.success) expect(result.error.issues.some((issue) => issue.path[0] === "confirmPassword")).toBe(true);
   });
 
   it("rejects invalid email and password shorter than 6 characters", () => {

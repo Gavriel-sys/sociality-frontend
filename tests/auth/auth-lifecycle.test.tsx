@@ -1,6 +1,6 @@
 import { createElement, type ReactNode } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, render, renderHook, screen, waitFor } from "@testing-library/react";
 import { Provider } from "react-redux";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import MeProfilePage from "@/app/(private)/me/page";
@@ -8,6 +8,7 @@ import { clearSession as clearAuthSlice, setSession } from "@/features/auth/auth
 import { registerSchema } from "@/features/auth/schemas";
 import { clearSession as clearStorageSession, loadSession, saveSession } from "@/features/auth/session-storage";
 import type { SessionData } from "@/features/auth/types";
+import { useLogout } from "@/features/auth/use-logout";
 import type { UserProfile } from "@/features/profile/types";
 import * as apiFetchModule from "@/lib/api/api-fetch";
 import { makeStore, type AppStore } from "@/lib/store/store";
@@ -29,7 +30,7 @@ const mockProfileResponse: UserProfile = {
   bio: "Building the future of social web.",
   postsCount: 8,
   followersCount: 420,
-  followingCount: 99,
+  followingCount: 99, likesCount: 0,
 };
 
 function createTestWrapper(store: AppStore, queryClient: QueryClient) {
@@ -57,16 +58,21 @@ describe("E2E Auth Lifecycle Integration", () => {
   });
 
   it("validates register schema with correct constraints", () => {
-    const invalid = registerSchema.safeParse({ username: "a", email: "bad", password: "123" });
-    expect(invalid.success).toBe(false);
+    const invalidRegistration = registerSchema.safeParse({ username: "a", email: "bad", password: "123" });
+    expect(invalidRegistration.success).toBe(false);
 
-    const valid = registerSchema.safeParse({
+    const registration = {
       name: "Alex Vance",
       username: "valid_user",
       email: "valid@example.com",
       password: "ValidPassword123!",
-    });
-    expect(valid.success).toBe(true);
+      confirmPassword: "ValidPassword123!",
+      phone: "08123456789",
+    };
+    const validRegistration = registerSchema.safeParse(registration);
+    expect(validRegistration.success).toBe(true);
+    expect(registerSchema.safeParse({ ...registration, email: undefined }).success).toBe(false);
+    expect(registerSchema.safeParse({ ...registration, phone: undefined }).success).toBe(true);
   });
 
   it("completes full auth lifecycle: login -> profile hydrate -> me view -> logout", async () => {
@@ -94,16 +100,15 @@ describe("E2E Auth Lifecycle Integration", () => {
       expect(screen.getByRole("heading", { level: 1, name: "Alex Vance" })).toBeInTheDocument();
     });
 
-    expect(screen.getByText("@alex101")).toBeInTheDocument();
+    expect(screen.getByText("alex101")).toBeInTheDocument();
     expect(screen.getByText("8")).toBeInTheDocument();
     expect(screen.getByText("420")).toBeInTheDocument();
     expect(screen.getByText("99")).toBeInTheDocument();
-    expect(screen.getByText("alex@example.com")).toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: "Gallery" })).toHaveAttribute("aria-selected", "true");
 
-    // 4. User clicks Log out on the profile view
     const clearQueryCacheSpy = vi.spyOn(queryClient, "clear");
-    const logoutBtn = screen.getByRole("button", { name: /Log out/i });
-    fireEvent.click(logoutBtn);
+    const { result: logout } = renderHook(() => useLogout(), { wrapper: Wrapper });
+    act(() => logout.current());
 
     // 5. Assert: storage cleared, Redux unauthenticated, cache purged, redirected to /login
     expect(loadSession()).toBeNull();

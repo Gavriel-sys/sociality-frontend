@@ -1,0 +1,62 @@
+.canvas {
+  position: relative;
+  isolation: isolate;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  min-height: 100svh;
+  overflow: clip;
+  padding: 60px 24px 89px;
+  background: var(--background);
+}
+
+.card {
+  position: relative;
+  width: 345px;
+  max-width: 100%;
+  padding: 32px 16px;
+  border-radius: 16px;
+  background: rgb(0 0 0 / 20%);
+  box-shadow: inset 0 0 0 1px #181d27;
+  backdrop-filter: blur(50px);
+}
+
+.glow {
+  position: absolute;
+  z-index: -1;
+  bottom: 0;
+  left: calc(50% - 196.5px);
+  width: 393px;
+  height: 233px;
+  background: url("/images/auth/glow-mobile.png") center bottom / 393px 233px no-repeat;
+  pointer-events: none;
+}
+
+@media (min-width: 768px) {
+  .canvas { padding: 120px 24px; }
+  .card { width: 523px; padding: 40px 24px; transform: translateX(0.5px); }
+  .glow {
+    top: 150px;
+    bottom: 0;
+    width: max(1440px, 100%);
+    left: min(0px, calc(50% - 720px));
+    height: auto;
+    background-image: url("/images/auth/glow-desktop.png");
+    background-position: center top;
+    background-size: 1440px 874px;
+    background-repeat: no-repeat;
+  }
+  .glow::before, .glow::after {
+    position: absolute;
+    inset: 874px 0 0;
+    content: "";
+  }
+  .glow::after {
+    background: linear-gradient(90deg, #7731d4, #5924ba 25%, #551da8 50%, #6c31bb 75%, #9468e6);
+  }
+  .glow::before {
+    z-index: 1;
+    background: linear-gradient(90deg, #9035dd, #6f2cc9 25%, #6b2ec0 50%, #8751d6 75%, #a179f2);
+    mask-image: linear-gradient(transparent, #000);
+  }
+}

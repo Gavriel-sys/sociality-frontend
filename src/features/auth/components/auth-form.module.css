@@ -1,0 +1,44 @@
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  width: 100%;
+}
+
+.form [data-slot="input-field"] { gap: 2px; }
+.form label {
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 28px;
+  letter-spacing: -0.28px;
+}
+
+.form input {
+  height: 48px;
+  padding-inline: 16px;
+  font-size: 16px;
+  font-weight: 590;
+  line-height: 30px;
+  letter-spacing: -0.32px;
+}
+
+.form input::placeholder { color: #535862; font-weight: 400; opacity: 1; }
+.form input:not([aria-invalid="true"]) { border-color: #181d27; }
+.form input[type="password"], .form input[autocomplete="new-password"],
+.form input[autocomplete="current-password"] { padding-right: 52px; }
+.form [data-slot="input-control"] > button { right: 4px; height: 48px; width: 44px; }
+.form [role="alert"] {
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 28px;
+  letter-spacing: -0.42px;
+}
+
+.actions { display: flex; flex-direction: column; gap: 16px; width: 100%; }
+.submit { width: 100%; font-size: 16px; font-weight: 700; line-height: 30px; letter-spacing: -0.32px; }
+.footer { text-align: center; font-size: 14px; font-weight: 590; line-height: 28px; letter-spacing: -0.28px; color: var(--foreground); }
+
+@media (min-width: 768px) {
+  .submit { height: 48px; }
+  .footer { font-size: 16px; line-height: 30px; letter-spacing: -0.32px; }
+}

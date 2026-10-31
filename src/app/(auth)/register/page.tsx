@@ -1,83 +1,85 @@
 "use client";
 
-import { useState } from "react";
-import Link from "next/link";
+import Image from "next/image";
+import { useRouter } from "next/navigation";
+import { useRef, useState } from "react";
 import { GuestGuard } from "@/components/auth/guest-guard";
+import { setSession } from "@/features/auth/auth-slice";
 import { RegisterForm } from "@/features/auth/components/register-form";
 import type { RegisterInput } from "@/features/auth/schemas";
+import { saveSession } from "@/features/auth/session-storage";
+import type { AuthUser, SessionData } from "@/features/auth/types";
+import { ApiHttpError } from "@/lib/api/api-errors";
+import { apiFetch } from "@/lib/api/api-fetch";
+import { useAppDispatch } from "@/lib/store/hooks";
+
+type RegistrationResponse = {
+  readonly success: true;
+  readonly message: string;
+  readonly data: { readonly token: string; readonly user: AuthUser };
+} | { readonly success: false; readonly message: string };
+
+async function registerAccount(registration: RegisterInput): Promise<SessionData> {
+  const response = await apiFetch<RegistrationResponse>({
+    endpoint: "/api/auth/register",
+    method: "POST",
+    body: {
+      name: registration.name.trim(),
+      username: registration.username.trim(),
+      email: registration.email.trim(),
+      password: registration.password,
+      phone: registration.phone?.trim() || undefined,
+    },
+  });
+  if (!response.success) throw new Error(response.message);
+  return { ...response.data, sessionId: crypto.randomUUID() };
+}
+
+function getRegistrationErrorMessage(error: unknown): string {
+  if (error instanceof ApiHttpError) {
+    const response = error.data;
+    if (typeof response === "object" && response !== null && "message" in response
+      && typeof response.message === "string" && response.message.trim()) {
+      return response.message;
+    }
+  }
+  return error instanceof Error ? error.message : "Registration failed. Please try again.";
+}
 
 function RegisterView() {
-  const [isLoading, setIsLoading] = useState(false);
-  const [serverError, setServerError] = useState<string | null>(null);
+  const router = useRouter();
+  const dispatch = useAppDispatch();
+  const isRegistering = useRef(false);
+  const [serverError, setServerError] = useState<string>();
 
-  const handleRegister = async (data: RegisterInput) => {
-    void data;
-    setIsLoading(true);
-    setServerError(null);
+  async function handleRegister(registration: RegisterInput): Promise<void> {
+    if (isRegistering.current) return;
+    isRegistering.current = true;
+    setServerError(undefined);
     try {
-      // Pure local demo simulation without external network requests
-      await new Promise((resolve) => setTimeout(resolve, 300));
-    } catch {
-      setServerError("An unexpected error occurred. Please try again.");
+      const session = await registerAccount(registration);
+      dispatch(setSession(session));
+      saveSession(session);
+      router.push("/feed");
+    } catch (error) {
+      setServerError(getRegistrationErrorMessage(error));
     } finally {
-      setIsLoading(false);
+      isRegistering.current = false;
     }
-  };
+  }
 
   return (
-    <div className="flex flex-col gap-6">
-      <div className="flex flex-col gap-4">
-        <div className="flex items-center gap-2.5">
-          <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-[#7F51F9] to-[#6936F2] shadow-sm">
-            <svg
-              width="20"
-              height="20"
-              viewBox="0 0 32 32"
-              fill="none"
-              className="text-[#FDFDFD]"
-              aria-hidden="true"
-            >
-              <path
-                d="M22 11C20.5 9.5 18 9 16 9C12.5 9 10 11.2 10 14C10 18.5 22 16.5 22 20.5C22 23 19.5 24 16 24C13.5 24 11.2 23 9.8 21.5"
-                stroke="currentColor"
-                strokeWidth="3"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-            </svg>
-          </div>
-          <span className="text-xl font-bold tracking-tight text-[#FDFDFD]">Sociality</span>
-        </div>
-
-        <div className="space-y-1">
-          <h1 className="text-2xl font-bold tracking-tight text-[#FDFDFD]">Create an account</h1>
-          <p className="text-sm text-[#A4A7AE]">Join Sociality to share and connect with friends.</p>
-        </div>
+    <div className="flex flex-col items-center gap-4 md:gap-6">
+      <div className="flex items-center gap-[11px] text-2xl leading-9 font-bold text-foreground">
+        <Image src="/images/auth/sociality-starburst.svg" width={30} height={30} alt="" />
+        <span>Sociality</span>
       </div>
-
-      <RegisterForm
-        onSubmit={handleRegister}
-        isLoading={isLoading}
-        serverError={serverError}
-      />
-
-      <p className="text-center text-sm text-[#A4A7AE]">
-        Already have an account?{" "}
-        <Link
-          href="/login"
-          className="font-medium text-[#7F51F9] underline-offset-4 hover:underline hover:text-[#9B76FA] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7F51F9] rounded transition-colors"
-        >
-          Sign in
-        </Link>
-      </p>
+      <h1 className="text-center text-2xl leading-9 font-bold text-foreground">Register</h1>
+      <RegisterForm onSubmit={handleRegister} serverError={serverError} />
     </div>
   );
 }
 
 export default function RegisterPage() {
-  return (
-    <GuestGuard>
-      <RegisterView />
-    </GuestGuard>
-  );
+  return <GuestGuard redirectTo="/feed"><RegisterView /></GuestGuard>;
 }

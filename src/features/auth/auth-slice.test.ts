@@ -66,7 +66,7 @@ describe("authSlice", () => {
     const authenticatedState = authReducer(undefined, setSession(mockSession));
     const updatedState = authReducer(
       authenticatedState,
-      updateUser({ name: "Alex Updated", avatarUrl: "https://example.com/avatar.jpg" }),
+      updateUser({ name: "Alex Updated", bio: "Updated bio", avatarUrl: "https://example.com/avatar.jpg" }),
     );
 
     expect(updatedState.token).toBe(mockSession.token);
@@ -75,10 +75,15 @@ describe("authSlice", () => {
     expect(updatedState.user?.name).toBe("Alex Updated");
     expect(updatedState.user?.avatarUrl).toBe("https://example.com/avatar.jpg");
     expect(updatedState.user?.username).toBe("alexdev");
+    expect(updatedState.user?.bio).toBe("Updated bio");
 
     const persisted = loadSession();
     expect(persisted?.user?.name).toBe("Alex Updated");
     expect(persisted?.user?.avatarUrl).toBe("https://example.com/avatar.jpg");
+    expect(persisted?.user?.bio).toBe("Updated bio");
+    const renamedState = authReducer(updatedState, updateUser({ name: "Alex Renamed" }));
+    expect(renamedState.user?.bio).toBe("Updated bio");
+    expect(loadSession()?.user?.bio).toBe("Updated bio");
   });
 
   it("assigns user when state.user is null on updateUser", () => {

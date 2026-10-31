@@ -5,6 +5,7 @@ import { Suspense, useEffect } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { LoadingState } from "@/components/feedback/loading-state";
 import { useAppSelector } from "@/lib/store/hooks";
+import { useIsHydrated } from "./use-is-hydrated";
 
 export interface AuthGuardProps {
   readonly children: ReactNode;
@@ -28,28 +29,29 @@ function AuthGuardContent({
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const status = useAppSelector((state) => state.auth.status);
+  const isMounted = useIsHydrated();
 
   useEffect(() => {
-    if (status === "unauthenticated") {
+    if (isMounted && status === "unauthenticated") {
       const currentPath = resolveCurrentPath(pathname, searchParams);
       const target = `/login?returnTo=${encodeURIComponent(currentPath)}`;
       router.push(target);
     }
-  }, [status, pathname, searchParams, router]);
+  }, [isMounted, status, pathname, searchParams, router]);
 
-  if (status === "authenticated") {
+  if (isMounted && status === "authenticated") {
     return <>{children}</>;
   }
 
-  return <>{fallback ?? <LoadingState message="Verifying session..." />}</>;
+  return <>{fallback}</>;
 }
 
 export function AuthGuard({ children, fallback }: AuthGuardProps) {
-  const defaultFallback = fallback ?? <LoadingState message="Verifying session..." />;
+  const loadingFallback = fallback ?? <LoadingState message="Verifying session..." />;
 
   return (
-    <Suspense fallback={defaultFallback}>
-      <AuthGuardContent fallback={fallback}>{children}</AuthGuardContent>
+    <Suspense fallback={loadingFallback}>
+      <AuthGuardContent fallback={loadingFallback}>{children}</AuthGuardContent>
     </Suspense>
   );
 }

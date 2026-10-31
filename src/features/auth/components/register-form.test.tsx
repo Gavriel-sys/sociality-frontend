@@ -1,136 +1,141 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { RegisterForm } from "./register-form";
 
-describe("RegisterForm component", () => {
-  it("displays validation errors on empty submission and does not call onSubmit", async () => {
-    // Arrange
+const registration = {
+  name: "Gilbert Doe", username: "gilbert_123", email: "gilbert@example.com", phone: "08123456789",
+  password: "secret123", confirmPassword: "secret123",
+};
+const labels = { name: "Name", username: "Username", email: "Email", phone: "Number Phone", password: "Password", confirmPassword: "Confirm Password" };
+
+function fillRegistration(overrides: Partial<typeof registration> = {}) {
+  const values = { ...registration, ...overrides };
+  for (const field of Object.keys(labels) as Array<keyof typeof labels>) {
+    fireEvent.change(screen.getByLabelText(labels[field]), { target: { value: values[field] } });
+  }
+}
+
+function submitRegistration() {
+  fireEvent.click(screen.getByRole("button", { name: /Submit/ }));
+}
+
+describe("RegisterForm", () => {
+  it("renders six fields in order with matching placeholders and login navigation", () => {
+    render(<RegisterForm onSubmit={vi.fn()} />);
+    expect(Array.from(screen.getByRole("form", { name: "Register" }).querySelectorAll("input"), (input) => input.id))
+      .toEqual(Object.keys(labels).map((name) => `register-${name}`));
+    expect(screen.getByPlaceholderText("Enter your name")).toHaveAccessibleName("Name");
+    expect(screen.getByPlaceholderText("Enter your username")).toHaveAccessibleName("Username");
+    expect(screen.getByPlaceholderText("Enter your email")).toHaveAttribute("type", "email");
+    expect(screen.getByLabelText("Email")).toBeRequired();
+    expect(screen.getByLabelText("Number Phone")).not.toBeRequired();
+    expect(screen.getByPlaceholderText("Enter your number phone")).toHaveAttribute("type", "tel");
+    expect(screen.getByPlaceholderText("Enter your password")).toHaveAttribute("type", "password");
+    expect(screen.getByPlaceholderText("Enter your confirm password")).toHaveAttribute("type", "password");
+    expect(screen.getByRole("link", { name: "Log in" })).toHaveAttribute("href", "/login");
+  });
+
+  it("shows accessible errors for required fields and focuses the first invalid input", async () => {
     const handleSubmit = vi.fn();
     render(<RegisterForm onSubmit={handleSubmit} />);
+    submitRegistration();
+    expect(await screen.findAllByRole("alert")).toHaveLength(5);
+    for (const label of ["Name", "Username", "Email", "Password", "Confirm Password"]) {
+      const input = screen.getByLabelText(label);
+      expect(input).toHaveAttribute("aria-invalid", "true");
+      expect(input).toHaveAccessibleDescription();
+    }
+    await waitFor(() => expect(screen.getByLabelText("Name")).toHaveFocus());
+    expect(handleSubmit).not.toHaveBeenCalled();
+  });
 
-    // Act
-    fireEvent.click(screen.getByRole("button", { name: /create account/i }));
+  it.each([
+    ["ab", "Username must be at least 3 characters"],
+    ["user-name", "Username can only contain letters, numbers, and underscores"],
+  ])("rejects invalid username %s", async (username, message) => {
+    const handleSubmit = vi.fn();
+    render(<RegisterForm onSubmit={handleSubmit} />);
+    fillRegistration({ username });
+    submitRegistration();
+    expect(await screen.findByText(message)).toBeInTheDocument();
+    expect(handleSubmit).not.toHaveBeenCalled();
+  });
 
-    // Assert
-    expect(await screen.findByText("Name is required")).toBeInTheDocument();
-    expect(await screen.findByText("Username must be at least 3 characters")).toBeInTheDocument();
-    expect(await screen.findByText("Email is required")).toBeInTheDocument();
+  it("rejects short passwords and mismatched confirmation", async () => {
+    const handleSubmit = vi.fn();
+    render(<RegisterForm onSubmit={handleSubmit} />);
+    fillRegistration({ password: "short" });
+    submitRegistration();
     expect(await screen.findByText("Password must be at least 6 characters")).toBeInTheDocument();
+    expect(await screen.findByText("Passwords do not match")).toBeInTheDocument();
     expect(handleSubmit).not.toHaveBeenCalled();
   });
 
-  it("validates username length and regex constraints", async () => {
-    // Arrange
+  it("submits trimmed registration values including email", async () => {
     const handleSubmit = vi.fn();
     render(<RegisterForm onSubmit={handleSubmit} />);
+    fillRegistration({ name: "  Gilbert Doe  ", username: " gilbert_123 ", email: " gilbert@example.com ", phone: " 08123456789 " });
+    submitRegistration();
+    await waitFor(() => expect(handleSubmit).toHaveBeenCalledExactlyOnceWith(registration));
+  });
 
-    // Act 1: Short username
-    fireEvent.change(screen.getByLabelText("Username"), { target: { value: "ab" } });
-    fireEvent.click(screen.getByRole("button", { name: /create account/i }));
-    expect(await screen.findByText("Username must be at least 3 characters")).toBeInTheDocument();
-
-    // Act 2: Invalid regex character (dash)
-    fireEvent.change(screen.getByLabelText("Username"), { target: { value: "user-name" } });
-    fireEvent.click(screen.getByRole("button", { name: /create account/i }));
-    expect(
-      await screen.findByText("Username can only contain letters, numbers, and underscores"),
-    ).toBeInTheDocument();
+  it.each(["", "invalid-email"])("blocks missing or invalid email %s", async (email) => {
+    const handleSubmit = vi.fn();
+    render(<RegisterForm onSubmit={handleSubmit} />);
+    fillRegistration({ email });
+    submitRegistration();
+    expect(await screen.findByRole("alert")).toBeInTheDocument();
+    expect(screen.getByLabelText("Email")).toHaveAttribute("aria-invalid", "true");
     expect(handleSubmit).not.toHaveBeenCalled();
   });
 
-  it("validates password minimum length requirement", async () => {
-    // Arrange
+  it("allows registration without a phone number", async () => {
     const handleSubmit = vi.fn();
     render(<RegisterForm onSubmit={handleSubmit} />);
+    fillRegistration({ phone: "" });
+    submitRegistration();
+    await waitFor(() => expect(handleSubmit).toHaveBeenCalledExactlyOnceWith({ ...registration, phone: undefined }));
+  });
 
-    // Act
-    fireEvent.change(screen.getByLabelText("Password"), { target: { value: "12345" } });
-    fireEvent.click(screen.getByRole("button", { name: /create account/i }));
-
-    // Assert
-    expect(await screen.findByText("Password must be at least 6 characters")).toBeInTheDocument();
+  it("reveals each password independently without changing its value or submitting", () => {
+    const handleSubmit = vi.fn();
+    render(<RegisterForm onSubmit={handleSubmit} />);
+    fillRegistration();
+    fireEvent.click(screen.getByRole("button", { name: "Show confirm password" }));
+    expect(screen.getByLabelText("Confirm Password")).toHaveAttribute("type", "text");
+    expect(screen.getByLabelText("Confirm Password")).toHaveValue("secret123");
+    expect(screen.getByLabelText("Password")).toHaveAttribute("type", "password");
+    fireEvent.click(screen.getByRole("button", { name: "Show password" }));
+    expect(screen.getByLabelText("Password")).toHaveAttribute("type", "text");
     expect(handleSubmit).not.toHaveBeenCalled();
   });
 
-  it("submits valid registration data with optional phone transformed to undefined when blank", async () => {
-    // Arrange
-    const handleSubmit = vi.fn();
+  it("disables all controls while an async submission is pending", async () => {
+    let finishSubmission: (() => void) | undefined;
+    const handleSubmit = vi.fn(() => new Promise<void>((resolve) => { finishSubmission = resolve; }));
     render(<RegisterForm onSubmit={handleSubmit} />);
-
-    // Act
-    fireEvent.change(screen.getByLabelText("Name"), { target: { value: "  Gilbert Doe  " } });
-    fireEvent.change(screen.getByLabelText("Username"), { target: { value: "gilbert_123" } });
-    fireEvent.change(screen.getByLabelText("Email"), { target: { value: "gilbert@example.com" } });
-    fireEvent.change(screen.getByLabelText("Password"), { target: { value: "secret123" } });
-    fireEvent.change(screen.getByLabelText(/phone number/i), { target: { value: "" } });
-    fireEvent.click(screen.getByRole("button", { name: /create account/i }));
-
-    // Assert
-    await waitFor(() => {
-      expect(handleSubmit).toHaveBeenCalledTimes(1);
-    });
-    expect(handleSubmit).toHaveBeenCalledWith({
-      name: "Gilbert Doe",
-      username: "gilbert_123",
-      email: "gilbert@example.com",
-      password: "secret123",
-      phone: undefined,
-    });
+    fillRegistration();
+    submitRegistration();
+    await waitFor(() => expect(screen.getByRole("button", { name: /Submit/ })).toBeDisabled());
+    expect(screen.getByLabelText("Confirm Password")).toBeDisabled();
+    submitRegistration();
+    expect(handleSubmit).toHaveBeenCalledTimes(1);
+    await act(async () => finishSubmission?.());
+    expect(screen.getByRole("button", { name: "Submit" })).toBeEnabled();
   });
 
-  it("submits valid registration data including phone number when provided", async () => {
-    // Arrange
-    const handleSubmit = vi.fn();
-    render(<RegisterForm onSubmit={handleSubmit} />);
-
-    // Act
-    fireEvent.change(screen.getByLabelText("Name"), { target: { value: "Gilbert Doe" } });
-    fireEvent.change(screen.getByLabelText("Username"), { target: { value: "gilbert_123" } });
-    fireEvent.change(screen.getByLabelText("Email"), { target: { value: "gilbert@example.com" } });
-    fireEvent.change(screen.getByLabelText("Password"), { target: { value: "secret123" } });
-    fireEvent.change(screen.getByLabelText(/phone number/i), { target: { value: "08123456789" } });
-    fireEvent.click(screen.getByRole("button", { name: /create account/i }));
-
-    // Assert
-    await waitFor(() => {
-      expect(handleSubmit).toHaveBeenCalledTimes(1);
-    });
-    expect(handleSubmit).toHaveBeenCalledWith({
-      name: "Gilbert Doe",
-      username: "gilbert_123",
-      email: "gilbert@example.com",
-      password: "secret123",
-      phone: "08123456789",
-    });
-  });
-
-  it("disables submit button and form controls in loading state", () => {
-    // Arrange
-    const handleSubmit = vi.fn();
-    render(<RegisterForm onSubmit={handleSubmit} isLoading={true} />);
-
-    // Assert
-    expect(screen.getByRole("button", { name: /create account/i })).toBeDisabled();
+  it("disables fields and visibility controls when loading externally", () => {
+    render(<RegisterForm onSubmit={vi.fn()} isLoading />);
+    for (const label of Object.values(labels)) {
+      expect(screen.getByLabelText(label)).toBeDisabled();
+    }
+    expect(screen.getByRole("button", { name: /Submit/ })).toBeDisabled();
     expect(screen.getByRole("button", { name: "Show password" })).toBeDisabled();
-    expect(screen.getByLabelText("Name")).toBeDisabled();
-    expect(screen.getByLabelText("Username")).toBeDisabled();
-    expect(screen.getByLabelText("Email")).toBeDisabled();
-    expect(screen.getByLabelText("Password")).toBeDisabled();
-    expect(screen.getByLabelText(/phone number/i)).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Show confirm password" })).toBeDisabled();
   });
 
-  it("renders server error alert banner when serverError is passed", () => {
-    // Arrange
-    const handleSubmit = vi.fn();
-    render(
-      <RegisterForm
-        onSubmit={handleSubmit}
-        serverError="Email or username already in use."
-      />,
-    );
-
-    // Assert
-    const alert = screen.getByRole("alert");
-    expect(alert).toHaveTextContent("Email or username already in use.");
+  it("announces server errors", () => {
+    render(<RegisterForm onSubmit={vi.fn()} serverError="Username already in use." />);
+    expect(screen.getByRole("alert")).toHaveTextContent("Username already in use.");
   });
 });

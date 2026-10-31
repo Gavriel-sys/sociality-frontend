@@ -1,90 +1,84 @@
 "use client";
 
-import { useState } from "react";
-import Link from "next/link";
+import Image from "next/image";
 import { useRouter, useSearchParams } from "next/navigation";
+import { Suspense, useRef, useState } from "react";
 import { GuestGuard } from "@/components/auth/guest-guard";
+import { setSession } from "@/features/auth/auth-slice";
 import { LoginForm } from "@/features/auth/components/login-form";
 import { getSafeReturnUrl } from "@/features/auth/redirect-utils";
 import type { LoginInput } from "@/features/auth/schemas";
+import { saveSession } from "@/features/auth/session-storage";
+import type { AuthUser, SessionData } from "@/features/auth/types";
+import { ApiHttpError } from "@/lib/api/api-errors";
+import { apiFetch } from "@/lib/api/api-fetch";
+import { useAppDispatch } from "@/lib/store/hooks";
+
+type LoginResponse = {
+  readonly success: true;
+  readonly message: string;
+  readonly data: { readonly token: string; readonly user: AuthUser };
+} | { readonly success: false; readonly message: string };
+
+async function loginAccount(credentials: LoginInput): Promise<SessionData> {
+  const response = await apiFetch<LoginResponse>({
+    endpoint: "/api/auth/login",
+    method: "POST",
+    body: { email: credentials.email.trim(), password: credentials.password },
+  });
+  if (!response.success) throw new Error(response.message);
+  return { ...response.data, sessionId: crypto.randomUUID() };
+}
+
+function getLoginErrorMessage(error: unknown): string {
+  if (error instanceof ApiHttpError) {
+    const response = error.data;
+    if (typeof response === "object" && response !== null && "message" in response
+      && typeof response.message === "string" && response.message.trim()) {
+      return response.message;
+    }
+  }
+  return error instanceof Error ? error.message : "Login failed. Please try again.";
+}
 
 function LoginView() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const [isLoading, setIsLoading] = useState(false);
-  const [serverError, setServerError] = useState<string | null>(null);
+  const dispatch = useAppDispatch();
+  const isLoggingIn = useRef(false);
+  const [serverError, setServerError] = useState<string>();
+  const returnUrl = getSafeReturnUrl(searchParams.get("returnTo"), "/feed");
 
-  const handleLogin = async (data: LoginInput) => {
-    void data;
-    setIsLoading(true);
-    setServerError(null);
+  async function handleLogin(credentials: LoginInput): Promise<void> {
+    if (isLoggingIn.current) return;
+    isLoggingIn.current = true;
+    setServerError(undefined);
     try {
-      // Pure local demo simulation without external network requests
-      await new Promise((resolve) => setTimeout(resolve, 300));
-      const returnTo = searchParams?.get("returnTo");
-      const target = getSafeReturnUrl(returnTo, "/me");
-      router.push(target);
-    } catch {
-      setServerError("An unexpected error occurred. Please try again.");
+      const session = await loginAccount(credentials);
+      dispatch(setSession(session));
+      saveSession(session);
+      router.push(returnUrl);
+    } catch (error) {
+      setServerError(getLoginErrorMessage(error));
     } finally {
-      setIsLoading(false);
+      isLoggingIn.current = false;
     }
-  };
+  }
 
   return (
-    <div className="flex flex-col gap-6">
-      <div className="flex flex-col gap-4">
-        <div className="flex items-center gap-2.5">
-          <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-[#7F51F9] to-[#6936F2] shadow-sm">
-            <svg
-              width="20"
-              height="20"
-              viewBox="0 0 32 32"
-              fill="none"
-              className="text-[#FDFDFD]"
-              aria-hidden="true"
-            >
-              <path
-                d="M22 11C20.5 9.5 18 9 16 9C12.5 9 10 11.2 10 14C10 18.5 22 16.5 22 20.5C22 23 19.5 24 16 24C13.5 24 11.2 23 9.8 21.5"
-                stroke="currentColor"
-                strokeWidth="3"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-            </svg>
-          </div>
-          <span className="text-xl font-bold tracking-tight text-[#FDFDFD]">Sociality</span>
+    <GuestGuard redirectTo={returnUrl}>
+      <div className="flex flex-col items-center gap-4 md:gap-6">
+        <div className="flex items-center gap-[11px] text-2xl leading-9 font-bold text-foreground">
+          <Image src="/images/auth/sociality-starburst.svg" width={30} height={30} alt="" />
+          <span>Sociality</span>
         </div>
-
-        <div className="space-y-1">
-          <h1 className="text-2xl font-bold tracking-tight text-[#FDFDFD]">Sign in</h1>
-          <p className="text-sm text-[#A4A7AE]">Welcome back! Please enter your details.</p>
-        </div>
+        <h1 className="text-center text-2xl leading-9 font-bold text-foreground">Log in</h1>
+        <LoginForm onSubmit={handleLogin} serverError={serverError} />
       </div>
-
-      <LoginForm
-        onSubmit={handleLogin}
-        isLoading={isLoading}
-        serverError={serverError}
-      />
-
-      <p className="text-center text-sm text-[#A4A7AE]">
-        Don&apos;t have an account?{" "}
-        <Link
-          href="/register"
-          className="font-medium text-[#7F51F9] underline-offset-4 hover:underline hover:text-[#9B76FA] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7F51F9] rounded transition-colors"
-        >
-          Sign up
-        </Link>
-      </p>
-    </div>
+    </GuestGuard>
   );
 }
 
 export default function LoginPage() {
-  return (
-    <GuestGuard>
-      <LoginView />
-    </GuestGuard>
-  );
+  return <Suspense><LoginView /></Suspense>;
 }

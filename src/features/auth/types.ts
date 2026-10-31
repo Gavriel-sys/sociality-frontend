@@ -3,6 +3,8 @@ export interface AuthUser {
   readonly name?: string;
   readonly username?: string;
   readonly email?: string;
+  readonly avatarUrl?: string;
+  readonly bio?: string;
 }
 
 export interface SessionData {
